@@ -59,7 +59,9 @@ Choose a build for the operating system and architecture **running CPA**, includ
 | macOS | amd64 / arm64 | `cpa-opencode.dylib` |
 | Windows | amd64 | `cpa-opencode.dll` |
 
-1. Verify the archive's SHA-256 against its checksum file.
+Release archives follow the [plugin store requirements](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store#release-requirements): `cpa-opencode_<version>_<goos>_<goarch>.zip`, with no leading `v` in the version. Each ZIP contains the platform library and `LICENSE` at its root; one `checksums.txt` lists the SHA-256 hashes of all platform ZIPs.
+
+1. Verify the archive's SHA-256 against `checksums.txt`.
 2. Extract the library and `LICENSE`. Put the library in CPA's plugin directory, for example `plugins/linux/amd64/cpa-opencode.so`.
 3. Add the [minimal configuration](#minimal-configuration) and set the upstream API key in CPA's process environment.
 4. Restart CPA and check that the plugin loads successfully.
@@ -259,7 +261,7 @@ go vet -tags debug ./... ./.github/scripts/...
 
 Linux/macOS debug integration tests load the production shared library into CPA v8 through a temporary Go source overlay. Local mock servers verify execution, streams, cancellation, per-credential quota, 402 failover and targeted cooldown reset. The module cache is not modified; `go mod download all` caches the SDK dependencies before the offline host tests.
 
-Real paid inference and account balance access require suitable credentials and separate live verification. Default tests make no paid calls. CI builds Linux amd64/arm64, macOS amd64/arm64 and Windows amd64 packages, each containing the library and license, with an archive checksum.
+Real paid inference and account balance access require suitable credentials and separate live verification. Default tests make no paid calls. CI builds Linux amd64/arm64, macOS amd64/arm64 and Windows amd64 packages, each containing the library and license. Each Actions artifact includes its package's `checksums.txt`; releases combine these into one `checksums.txt` covering all five ZIPs.
 
 ## License and assets
 

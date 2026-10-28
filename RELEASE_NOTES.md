@@ -12,7 +12,7 @@ Initial OpenCode pay-as-you-go provider for CLIProxyAPI v8.
 ## Compatibility and installation
 
 - Requires CLIProxyAPI `v8.0.0+` with native plugins enabled and an OpenCode PAYG API key.
-- Download the ZIP for the CPA host: Linux amd64/arm64, macOS amd64/arm64, or Windows amd64. Verify it against the matching `.sha256` file before extracting the library and `LICENSE`.
+- Download the ZIP for the CPA host: Linux amd64/arm64, macOS amd64/arm64, or Windows amd64. Archives use `cpa-opencode_<version>_<goos>_<goarch>.zip` with no leading `v`. Verify the ZIP against the release's `checksums.txt` before extracting the library and `LICENSE` from the ZIP root.
 - Follow the [English installation guide](https://github.com/dillonzq/cpa-opencode/blob/v0.1.0/README.md#install) or [中文安装说明](https://github.com/dillonzq/cpa-opencode/blob/v0.1.0/README.zh-CN.md#安装) for the minimal configuration.
 - Prebuilt libraries do not require Go. Source builds require Go `1.26.10+`, CGO and a C compiler for the target platform.
 

@@ -90,13 +90,13 @@ jobs:
           archive="dist/cpa-opencode_${version}_${TARGET_OS}_${TARGET_ARCH}.zip"
           CGO_ENABLED=1 GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" go build -trimpath -buildmode=c-shared \
             -ldflags "-s -w -X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=$version" -o "$library" .
-          go run ./.github/scripts/package-release.go -library "$library" -archive "$archive" -checksum "$archive.sha256"
+          go run ./.github/scripts/package-release.go -library "$library" -archive "$archive" -checksum dist/checksums.txt
       - uses: actions/upload-artifact@v4
         with:
           name: cpa-opencode-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             dist/*.zip
-            dist/*.sha256
+            dist/checksums.txt
           if-no-files-found: error
 
   release:
@@ -121,8 +121,13 @@ jobs:
       - uses: actions/download-artifact@v5
         with:
           pattern: cpa-opencode-*
-          merge-multiple: true
-          path: release-assets
+          path: release-packages
+      - name: Assemble release assets
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp release-packages/*/*.zip release-assets/
+          LC_ALL=C sort -k2 release-packages/*/checksums.txt > release-assets/checksums.txt
       - name: Prepare release notes
         run: go run ./.github/scripts/release-notes -notes RELEASE_NOTES.md -tag "$RELEASE_TAG" -out "$RUNNER_TEMP/release-notes.md"
       - name: Verify release packages
@@ -130,12 +135,22 @@ jobs:
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
+          test "$(find . -maxdepth 1 -name '*.zip' | wc -l)" -eq 5
+          test "$(wc -l < checksums.txt)" -eq 5
+          diff -u <(printf '%s\n' *.zip | LC_ALL=C sort) \
+            <(awk '{print $2}' checksums.txt | LC_ALL=C sort)
+          sha256sum --check --strict checksums.txt
           for target in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64 windows_amd64; do
             archive="cpa-opencode_${version}_${target}.zip"
             test -s "$archive"
-            test -s "$archive.sha256"
-            sha256sum --check --strict "$archive.sha256"
             unzip -t "$archive"
+            case "$target" in
+              linux_*) ext=so ;;
+              darwin_*) ext=dylib ;;
+              windows_*) ext=dll ;;
+            esac
+            diff -u <(printf '%s\n' LICENSE "cpa-opencode.$ext" | LC_ALL=C sort) \
+              <(unzip -Z1 "$archive" | LC_ALL=C sort)
           done
       - name: Create or update release draft
         run: |
@@ -145,9 +160,14 @@ jobs:
               echo "Refusing to modify an already published release: $RELEASE_TAG" >&2
               exit 1
             fi
-            gh release upload "$RELEASE_TAG" release-assets/*.zip release-assets/*.sha256 --clobber
+            gh release upload "$RELEASE_TAG" release-assets/*.zip release-assets/checksums.txt --clobber
+            # Remove checksum sidecars left by older workflow runs of this draft.
+            gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name | select(endswith(".zip.sha256"))' |
+              while IFS= read -r asset; do
+                gh release delete-asset "$RELEASE_TAG" "$asset" --yes
+              done
             gh release edit "$RELEASE_TAG" --draft --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           else
-            gh release create "$RELEASE_TAG" release-assets/*.zip release-assets/*.sha256 \
+            gh release create "$RELEASE_TAG" release-assets/*.zip release-assets/checksums.txt \
               --draft --verify-tag --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi
