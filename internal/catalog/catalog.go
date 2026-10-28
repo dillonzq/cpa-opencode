@@ -1,0 +1,590 @@
+// Package catalog fetches the live OpenCode /v1/models catalog,
+// normalizes metadata, assigns routes, and serves the last good snapshot
+// .
+//
+// Protocol resolution: the built-in protocol table patched by the
+// user's models[].protocols switches; a model left without protocols is
+// unsupported (excluded from the routable set, kept in diagnostics).
+//
+// Scheduling is owned by the plugin manager.
+package catalog
+
+import (
+	"cmp"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
+
+	"github.com/dillonzq/cpa-opencode/internal/config"
+	"github.com/dillonzq/cpa-opencode/internal/modelmeta"
+)
+
+// catalogBudgetFloor keeps an undersized max-response-bytes knob from
+// freezing stale serving forever: catalogs grow larger than typical
+// completion bodies, so the fetch budget never drops below 16 MiB while
+// max-response-bytes stays meaningful for completions elsewhere.
+const catalogBudgetFloor = 16 << 20
+
+// Route is an upstream protocol a model is served through.
+type Route string
+
+const (
+	RouteChatCompletions Route = "chat-completions"
+	RouteMessages        Route = "messages"
+	RouteResponses       Route = "responses"
+	RouteGemini          Route = "gemini"
+)
+
+// protocolOrder lists every route; protocols a model declaration adds beyond
+// its built-in set follow in this order.
+var protocolOrder = []Route{RouteChatCompletions, RouteMessages, RouteResponses, RouteGemini}
+
+// routeEndpoints maps each route to its default endpoint path below base-url.
+// The Gemini path names the model resource; Target.URL appends the operation.
+var routeEndpoints = map[Route]string{
+	RouteChatCompletions: "/openai/v1/chat/completions",
+	RouteMessages:        "/anthropic/v1/messages",
+	RouteResponses:       "/openai/v1/responses",
+	RouteGemini:          "/google/v1beta/models/" + config.ModelPlaceholder,
+}
+
+// EndpointPath returns the route's default upstream endpoint path, or "" for
+// unknown routes.
+func (r Route) EndpointPath() string {
+	return routeEndpoints[r]
+}
+
+// Target is one protocol a model supports and the endpoint path serving it.
+type Target struct {
+	Protocol     Route
+	EndpointPath string
+}
+
+// URL joins base-url and the endpoint path, substituting the upstream model.
+// Gemini carries the operation in the path: streaming uses
+// streamGenerateContent with SSE framing.
+func (t Target) URL(baseURL, model string, stream bool) string {
+	path := strings.ReplaceAll(t.EndpointPath, config.ModelPlaceholder, url.PathEscape(model))
+	if t.Protocol == RouteGemini {
+		if stream {
+			path += ":streamGenerateContent?alt=sse"
+		} else {
+			path += ":generateContent"
+		}
+	}
+	return JoinUpstreamURL(baseURL, path)
+}
+
+// ModelRecord is one routable normalized catalog entry.
+type ModelRecord struct {
+	PublicID    string
+	UpstreamID  string
+	DisplayName string
+	Description string
+	// Routes lists the supported protocols in declaration order; the first
+	// is the documented primary endpoint.
+	Routes       []Target
+	ContextLimit int64
+	OutputLimit  int64
+	InputModes   []string
+	OutputModes  []string
+	Thinking     *pluginapi.ThinkingSupport
+	UserDefined  bool
+}
+
+// Target returns the record's endpoint for a protocol.
+func (r ModelRecord) Target(route Route) (Target, bool) {
+	for _, t := range r.Routes {
+		if t.Protocol == route {
+			return t, true
+		}
+	}
+	return Target{}, false
+}
+
+// Supports reports whether the record serves a protocol.
+func (r ModelRecord) Supports(route Route) bool {
+	_, ok := r.Target(route)
+	return ok
+}
+
+// UnsupportedModel is a discovered model excluded from the routable set,
+// retained for diagnostics.
+type UnsupportedModel struct {
+	UpstreamID string
+	Reason     string
+}
+
+// HostClient issues HTTP requests through the host (pluginapi.HTTPDo
+// semantics); M3's host callback satisfies it directly.
+type HostClient interface {
+	Do(ctx context.Context, req pluginapi.HTTPRequest) (pluginapi.HTTPResponse, error)
+}
+
+// rawModel tolerantly decodes one catalog entry; unknown fields —
+// including protocol/endpoint fields the catalog does not provide and
+// reasoning/tool_calling flags the plugin does not act on — are ignored via
+// json tags. Capability extensions use Codex client catalog field names.
+type rawModel struct {
+	ID               string              `json:"id"`
+	DisplayName      *string             `json:"display_name"`
+	Description      *string             `json:"description"`
+	ContextWindow    *int64              `json:"context_window"`
+	MaxTokens        *int64              `json:"max_tokens"`
+	InputModalities  []string            `json:"input_modalities"`
+	OutputModalities []string            `json:"output_modalities"`
+	ReasoningLevels  []rawReasoningLevel `json:"supported_reasoning_levels"`
+	userDefined      bool
+}
+
+// rawReasoningLevel matches a Codex supported_reasoning_levels entry.
+type rawReasoningLevel struct {
+	Effort string `json:"effort"`
+}
+
+// prefixRoutes follows the OpenCode endpoint table
+// (https://opencode.ai/v2/docs/console/models/) and covers unknown variants of
+// known families. The first protocol is the documented endpoint; DeepSeek
+// also serves Responses and Messages. Longest prefix wins (list is ordered
+// longest-first).
+var prefixRoutes = []struct {
+	prefix string
+	routes []Route
+}{
+	{"minimax-m3.1-flash", []Route{RouteChatCompletions}},
+	{"muse-wonder", []Route{RouteResponses}},
+	{"qwen3.8-max", []Route{RouteChatCompletions}},
+	{"big-pickle", []Route{RouteChatCompletions}},
+	{"muse-spark", []Route{RouteResponses}},
+	{"deepseek", []Route{RouteChatCompletions, RouteResponses, RouteMessages}},
+	{"longcat", []Route{RouteChatCompletions}},
+	{"minimax", []Route{RouteChatCompletions}},
+	{"mistral", []Route{RouteChatCompletions}},
+	{"claude", []Route{RouteMessages}},
+	{"gemini", []Route{RouteGemini}},
+	{"beam", []Route{RouteChatCompletions}},
+	{"grok", []Route{RouteResponses}},
+	{"kimi", []Route{RouteChatCompletions}},
+	{"mimo", []Route{RouteChatCompletions}},
+	{"qwen", []Route{RouteMessages}},
+	{"step", []Route{RouteChatCompletions}},
+	{"glm", []Route{RouteChatCompletions}},
+	{"gpt", []Route{RouteResponses}},
+	{"hy", []Route{RouteChatCompletions}},
+}
+
+// Manager owns the catalog snapshot. All accessors are safe for
+// concurrent use alongside Refresh.
+type Manager struct {
+	cfg          config.Config
+	client       HostClient
+	refreshMu    sync.Mutex
+	fallback     map[string]modelmeta.Metadata
+	fallbackNext time.Time
+
+	mu sync.Mutex
+	// raw retains the decoded upstream entries behind the current snapshot
+	// so SeedFrom can rebuild records against a NEW config (protocol
+	// switches, endpoints, and prefix settings may all have changed since
+	// the snapshot was built).
+	raw    []rawModel
+	models []ModelRecord
+	// index maps both PublicID and UpstreamID to their record so ID
+	// resolution is O(1); rebuilt atomically with models on every swap.
+	index map[string]ModelRecord
+	unsup []UnsupportedModel
+	warns []string
+}
+
+// New returns a Manager serving cfg through the host client.
+func New(cfg config.Config, client HostClient) *Manager {
+	m := &Manager{cfg: cfg, client: client}
+	m.swap(nil)
+	return m
+}
+
+// SeedFrom republishes only prev's raw catalog snapshot, keeping m's current
+// fallback metadata and cache expiry. It rebuilds every record through the same
+// resolution/validation path a refresh applies, but against m's OWN cfg:
+// routes re-resolve (a removed declaration drops its model), protocol
+// switches re-apply, PublicIDs recompute under m's prefix, endpoints re-check
+// against m's base-url, and collisions/diagnostics regenerate.
+//
+// m keeps its OWN cfg: subsequent Refresh calls use m's base-url/catalog-url/
+// protocols/prefix (F5: a failed-refresh reconfigure must adopt the new
+// manager rather than keep ticking the old URL). Because seeding rebuilds
+// instead of copying, a config change between snapshots takes effect at seed
+// time — e.g. a protocol switched off during a catalog outage demotes its
+// routes immediately instead of serving stale routable records until the
+// outage ends.
+func (m *Manager) SeedFrom(prev *Manager) {
+	prev.mu.Lock()
+	raw := prev.raw
+	prev.mu.Unlock()
+	m.swap(raw)
+}
+
+// SeedFallbackFrom carries the independent metadata cache across reconfiguration
+// without carrying upstream models (which must still obey the catalog stale policy).
+func (m *Manager) SeedFallbackFrom(prev *Manager) {
+	if prev == nil || !m.cfg.ModelsDev.Enabled || m.cfg.ModelsDev.URL != prev.cfg.ModelsDev.URL {
+		return
+	}
+	prev.mu.Lock()
+	fallback, next := prev.fallback, prev.fallbackNext
+	prev.mu.Unlock()
+	if !next.IsZero() {
+		next = next.Add(m.cfg.ModelsDev.RefreshInterval - prev.cfg.ModelsDev.RefreshInterval)
+	}
+	m.mu.Lock()
+	m.fallback, m.fallbackNext = fallback, next
+	m.mu.Unlock()
+}
+
+// Refresh fetches and swaps the catalog snapshot. On failure it returns a
+// classified, key-free error; the previous snapshot keeps serving while
+// catalog.stale-while-unavailable is enabled, otherwise discovered records
+// are cleared until the next success. Explicit declarations remain available.
+func (m *Manager) Refresh(ctx context.Context, apiKey string) error {
+	m.refreshMu.Lock()
+	defer m.refreshMu.Unlock()
+	if m.client == nil {
+		// Only direct construction can produce a nil host client
+		// (production always wires the bridge); fail loudly through the
+		// classified path instead of panicking inside Do.
+		return m.fail(ctx, "host client unavailable")
+	}
+	req := pluginapi.HTTPRequest{
+		Method: http.MethodGet,
+		URL:    m.cfg.CatalogURL,
+		Headers: http.Header{
+			"Accept": []string{"application/json"},
+		},
+	}
+	if apiKey != "" {
+		req.Headers.Set("Authorization", "Bearer "+apiKey)
+	}
+	resp, err := m.client.Do(ctx, req)
+	if err != nil {
+		return m.fail(ctx, "network error")
+	}
+	budget := max(m.cfg.MaxResponseBytes, catalogBudgetFloor)
+	if int64(len(resp.Body)) > budget {
+		return m.fail(ctx, "response exceeds max-response-bytes")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return m.fail(ctx, fmt.Sprintf("http %d", resp.StatusCode))
+	}
+	var env struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(resp.Body, &env); err != nil {
+		return m.fail(ctx, "invalid json")
+	}
+	var entries []rawModel
+	var warns []string
+	if env.Data == nil {
+		// Key ABSENCE is upstream shape drift, never an intended clear:
+		// clear like an empty plan (swap(nil)) but leave a diagnostic.
+		// A present-but-empty array stays silent (tested-intended state).
+		warns = append(warns, `upstream catalog response missing "data" field`)
+	} else if err := json.Unmarshal(env.Data, &entries); err != nil {
+		return m.fail(ctx, "invalid json")
+	}
+	if (len(entries) > 0 || len(m.cfg.Models) > 0) && m.cfg.ModelsDev.Enabled {
+		if warn := m.refreshFallback(ctx); warn != "" {
+			warns = append(warns, warn)
+		}
+	}
+	m.swap(entries, warns...)
+	return nil
+}
+
+// fail applies the stale policy and returns the classified error.
+func (m *Manager) fail(ctx context.Context, category string) error {
+	var warns []string
+	if len(m.cfg.Models) > 0 && m.cfg.ModelsDev.Enabled && m.client != nil {
+		if warn := m.refreshFallback(ctx); warn != "" {
+			warns = append(warns, warn)
+		}
+	}
+	m.mu.Lock()
+	entries := m.raw
+	if !m.cfg.Catalog.StaleWhileUnavailable {
+		// Fail-closed removes discovered records; explicit user declarations
+		// remain independently available and rebuild the index below.
+		entries = nil
+	}
+	m.mu.Unlock()
+	m.swap(entries, warns...)
+	return fmt.Errorf("catalog refresh failed: %s", category)
+}
+
+// swap builds the new snapshot from decoded entries and installs it
+// atomically under the mutex.
+// extraWarns are caller-supplied snapshot diagnostics (e.g. decode-level
+// shape-drift notices) recorded alongside the per-entry ones.
+func (m *Manager) swap(entries []rawModel, extraWarns ...string) {
+	m.mu.Lock()
+	fallback := m.fallback
+	m.mu.Unlock()
+	overrides := make(map[string]config.ModelOverride, len(m.cfg.Models))
+	for _, model := range m.cfg.Models {
+		overrides[model.Name] = model
+	}
+	// Keep m.raw limited to discovered entries. Otherwise a removed user model
+	// could survive reconfiguration by being carried as stale upstream data.
+	combined := make([]rawModel, 0, len(entries)+len(m.cfg.Models))
+	combined = append(combined, entries...)
+	present := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		present[entry.ID] = true
+	}
+	for _, model := range m.cfg.Models {
+		if !present[model.Name] {
+			combined = append(combined, rawModel{ID: model.Name, userDefined: true})
+		}
+	}
+	models := make([]ModelRecord, 0, len(combined))
+	index := make(map[string]ModelRecord, len(combined)*2)
+	var unsup []UnsupportedModel
+	var warns []string
+	warns = append(warns, extraWarns...)
+	seen := make(map[string]bool, len(combined))
+	for _, e := range combined {
+		if e.ID == "" {
+			unsup = append(unsup, UnsupportedModel{Reason: "missing id"})
+			continue
+		}
+		if seen[e.ID] {
+			warns = append(warns, fmt.Sprintf("duplicate model %q ignored; keeping first occurrence", e.ID))
+			continue
+		}
+		seen[e.ID] = true
+		targets, disabled, warn := m.resolve(e.ID, overrides[e.ID].Protocols)
+		if warn != "" {
+			warns = append(warns, warn)
+		}
+		if len(targets) == 0 {
+			reason := "no route determined"
+			if len(disabled) > 0 {
+				noun := "protocol"
+				if len(disabled) > 1 {
+					noun = "protocols"
+				}
+				reason = fmt.Sprintf("%s %s disabled by config", noun, strings.Join(disabled, ", "))
+			}
+			unsup = append(unsup, UnsupportedModel{UpstreamID: e.ID, Reason: reason})
+			continue
+		}
+		routes, reason, routeWarns := m.routable(e.ID, targets)
+		warns = append(warns, routeWarns...)
+		if len(routes) == 0 {
+			unsup = append(unsup, UnsupportedModel{UpstreamID: e.ID, Reason: reason})
+			continue
+		}
+		metadata := modelmeta.Merge(fallback[e.ID], e.metadata())
+		metadata = deepSeekThinkingMetadata(e.ID, metadata, overrides[e.ID].Thinking)
+		metadata = modelmeta.Merge(metadata, overrides[e.ID].Metadata)
+		display := modelmeta.Value(metadata.DisplayName)
+		if metadata.DisplayName == nil {
+			display = e.ID
+		}
+		rec := ModelRecord{
+			PublicID:     config.PublicID(m.cfg, e.ID),
+			UpstreamID:   e.ID,
+			DisplayName:  display,
+			Description:  modelmeta.Value(metadata.Description),
+			Routes:       routes,
+			ContextLimit: modelmeta.Value(metadata.Context),
+			OutputLimit:  modelmeta.Value(metadata.Output),
+			InputModes:   metadata.InputModalities,
+			OutputModes:  metadata.OutputModalities,
+			Thinking:     metadata.Thinking.Support(),
+			UserDefined:  e.userDefined,
+		}
+		// With a prefix enabled, one record's PublicID can equal another
+		// record's UpstreamID (upstream "foo" and "opencode/foo" both
+		// claim index key "<prefix>/foo"); last-write-wins would silently
+		// misroute. First in catalog order wins (same dedup rule as
+		// duplicate IDs); the later record is excluded. Same-role clashes
+		// are impossible — distinct upstream IDs and an injective public
+		// mapping — so the slot owner always holds the key via its other
+		// role, and a record's own public==upstream rewrite is not a clash.
+		if other, ok := index[rec.PublicID]; ok {
+			reason := fmt.Sprintf("public id %q collides with upstream id %q", rec.PublicID, other.UpstreamID)
+			warns = append(warns, reason)
+			unsup = append(unsup, UnsupportedModel{UpstreamID: e.ID, Reason: reason})
+			continue
+		}
+		if other, ok := index[rec.UpstreamID]; ok {
+			reason := fmt.Sprintf("public id %q collides with upstream id %q", other.PublicID, rec.UpstreamID)
+			warns = append(warns, reason)
+			unsup = append(unsup, UnsupportedModel{UpstreamID: e.ID, Reason: reason})
+			continue
+		}
+		models = append(models, rec)
+		index[rec.PublicID] = rec
+		index[rec.UpstreamID] = rec
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.raw, m.models, m.index, m.unsup, m.warns = entries, models, index, unsup, warns
+}
+
+// resolve builds a model's targets: the compatibility table (family prefix)
+// patched by the model's declaration, whose entries switch protocols on or
+// off. Endpoints take the model's path, then the global protocols path, then
+// the protocol default. disabled lists the built-in protocols switched off.
+func (m *Manager) resolve(id string, declared map[string]config.ProtocolOverride) (targets []Target, disabled []string, warn string) {
+	var routes []Route
+	lower := strings.ToLower(id)
+	for _, p := range prefixRoutes {
+		if strings.HasPrefix(lower, p.prefix) {
+			routes = append(routes, p.routes...)
+			break
+		}
+	}
+	for _, r := range protocolOrder {
+		if p, ok := declared[string(r)]; ok && p.IsEnabled() && !slices.Contains(routes, r) {
+			routes = append(routes, r)
+		}
+	}
+	parts := make([]string, 0, len(routes))
+	for _, r := range routes {
+		p := declared[string(r)]
+		if !p.IsEnabled() {
+			disabled = append(disabled, string(r))
+			continue
+		}
+		t := Target{Protocol: r, EndpointPath: cmp.Or(p.Endpoint, m.cfg.Protocols[string(r)].Endpoint, r.EndpointPath())}
+		targets = append(targets, t)
+		parts = append(parts, string(r)+" "+t.EndpointPath)
+	}
+	// Spec 04 §5: user routing MUST be visible in diagnostics. Load
+	// validation guarantees known protocols.
+	if len(declared) > 0 && len(targets) > 0 {
+		warn = fmt.Sprintf("model %q routed via user configuration (%s)", id, strings.Join(parts, ", "))
+	}
+	return targets, disabled, warn
+}
+
+// routable drops targets whose URL leaves the configured upstream. With
+// nothing left it returns the exclusion reason.
+func (m *Manager) routable(id string, targets []Target) ([]Target, string, []string) {
+	const escapes = "resolved endpoint escapes the configured upstream host"
+	routes := make([]Target, 0, len(targets))
+	var warns []string
+	for _, t := range targets {
+		// The joined URL must stay on the configured upstream authority.
+		// User endpoints flow through here, so they cannot rewrite the URL
+		// host — e.g. "/v1@evil.com/x" against a bare-host base-url turns
+		// the base into userinfo and would send credentials/prompts to an
+		// attacker host.
+		if endpointEscapesBase(m.cfg.BaseURL, t, id) {
+			warns = append(warns, fmt.Sprintf("model %q %s: %s", id, t.Protocol, escapes))
+			continue
+		}
+		routes = append(routes, t)
+	}
+	if len(routes) == 0 {
+		return nil, escapes, nil
+	}
+	return routes, "", warns
+}
+
+// JoinUpstreamURL joins the configured base-url onto an endpoint path and
+// is the single source of truth for that join: base-url carries
+// no version segment (default .../inference), so endpoint paths carry
+// their own /v1 or /v1beta. The authority-escape check (endpointEscapesBase)
+// must parse exactly the URL this produces — two independent join formulas
+// would be free to drift apart and validate one URL while sending another.
+func JoinUpstreamURL(baseURL, endpoint string) string {
+	return strings.TrimSuffix(baseURL, "/") + endpoint
+}
+
+// endpointEscapesBase reports whether the target's URL for model would send
+// the request to a different authority or scheme than the configured
+// base-url. Any parse failure counts as escaping (fail closed).
+func endpointEscapesBase(baseURL string, t Target, model string) bool {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return true
+	}
+	got, err := url.Parse(t.URL(baseURL, model, true))
+	if err != nil {
+		return true
+	}
+	return !strings.EqualFold(got.Host, base.Host) || got.Scheme != base.Scheme
+}
+
+// normalizeReasoningLevels preserves missing versus explicitly empty capabilities.
+func normalizeReasoningLevels(levels []rawReasoningLevel) *modelmeta.Thinking {
+	if levels == nil {
+		return nil
+	}
+	t := &modelmeta.Thinking{Levels: make([]string, 0, len(levels)), ZeroAllowed: modelmeta.Ptr(false)}
+	for _, level := range levels {
+		if level.Effort == "" {
+			continue
+		}
+		t.Levels = append(t.Levels, level.Effort)
+		if level.Effort == "none" {
+			t.ZeroAllowed = modelmeta.Ptr(true)
+		}
+	}
+	return t
+}
+
+func (e rawModel) metadata() modelmeta.Metadata {
+	return modelmeta.Metadata{DisplayName: e.DisplayName, Description: e.Description,
+		Context: e.ContextWindow, Output: e.MaxTokens, InputModalities: e.InputModalities,
+		OutputModalities: e.OutputModalities, Thinking: normalizeReasoningLevels(e.ReasoningLevels)}
+}
+
+// Models returns the routable snapshot. The slice
+// is a shallow copy; records are rebuilt fresh on every swap and consumers
+// treat them as read-only, so nested slices/thinking are shared safely.
+func (m *Manager) Models() []ModelRecord {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]ModelRecord, len(m.models))
+	copy(out, m.models)
+	return out
+}
+
+// Lookup resolves an ID to its routable record, accepting the public ID
+// (with or without prefix) or the bare upstream ID: the PublicID
+// key wins over UpstreamID when both exist.
+func (m *Manager) Lookup(id string) (ModelRecord, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	rec, ok := m.index[id]
+	return rec, ok
+}
+
+// Unsupported returns models excluded from the routable set with reasons.
+func (m *Manager) Unsupported() []UnsupportedModel {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]UnsupportedModel, len(m.unsup))
+	copy(out, m.unsup)
+	return out
+}
+
+// Warnings returns dedup and override diagnostics.
+func (m *Manager) Warnings() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]string, len(m.warns))
+	copy(out, m.warns)
+	return out
+}

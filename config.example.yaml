@@ -1,0 +1,29 @@
+config-version: 8
+plugins:
+  enabled: true
+  configs:
+    cpa-opencode:
+      enabled: true
+      credentials:
+        - name: Personal
+          api-key: "${OPENCODE_API_KEY}"
+        - name: Team
+          api-key: "${OPENCODE_TEAM_API_KEY}"
+          # Optional for keys requiring explicit workspace selection.
+          # workspace-id: org_example
+      base-url: https://opencode.ai/inference
+      console-url: https://opencode.ai/console
+      model-prefix:
+        enabled: true
+        value: opencode
+      catalog:
+        refresh-interval: 15m
+        stale-while-unavailable: true
+      models-dev:
+        enabled: true
+        url: https://models.dev/api.json
+        refresh-interval: 24h
+      quota:
+        timeout: 15s
+      request-timeout: 5m
+      max-response-bytes: 67108864
