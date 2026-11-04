@@ -60,7 +60,7 @@ func TestOpenCodeNativeDeepSeekThinking(t *testing.T) {
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
 	plug, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister,
-		[]byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  url: %s/metadata\n", server.URL, server.URL)))
+		[]byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  url: %s/metadata\n", server.URL, server.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestOpenCodeNativeMetadata(t *testing.T) {
 	}
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
-	yaml := []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  url: %s/metadata\nmodels:\n  - name: glm-metadata-test\n    display-name: User name\n    max-context-length: 300000\n", server.URL, server.URL))
+	yaml := []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  url: %s/metadata\nmodels:\n  - name: glm-metadata-test\n    display-name: User name\n    max-context-length: 300000\n", server.URL, server.URL))
 	plug, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, yaml)
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +372,7 @@ func TestOpenCodeNativeABI(t *testing.T) {
 	defer client.Shutdown()
 	register := func(timeout string) pluginapi.Plugin {
 		t.Helper()
-		yaml := []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nrequest-timeout: %s\nmodels-dev:\n  enabled: false\n", server.URL, timeout))
+		yaml := []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nrequest-timeout: %s\nmodels-dev:\n  enabled: false\n", server.URL, timeout))
 		plug, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginReconfigure, yaml)
 		if err != nil {
 			t.Fatal(err)
@@ -587,7 +587,7 @@ func TestOpenCodeNativeABI(t *testing.T) {
 		blockCatalog.Store(true)
 		reconfigured := make(chan error, 1)
 		go func() {
-			_, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginReconfigure, []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL)))
+			_, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginReconfigure, []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL)))
 			reconfigured <- err
 		}()
 		await(started, "catalog")
@@ -662,7 +662,7 @@ func TestOpenCodeNativeUnload(t *testing.T) {
 	}
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
-	_, err = registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nrequest-timeout: 30s\nmodels-dev:\n  enabled: false\n", server.URL)))
+	_, err = registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nrequest-timeout: 30s\nmodels-dev:\n  enabled: false\n", server.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -749,7 +749,7 @@ func TestOpenCodeNativeAuthNames(t *testing.T) {
 	}
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
-	yaml := []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-first\n    name: Personal\n  - api-key: offline-second\n    name: personal\n  - api-key: offline-third\n    name: CON\n  - api-key: offline-fourth\n    name: aux\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL))
+	yaml := []byte(fmt.Sprintf("api-keys:\n  - value: offline-first\n    name: Personal\n  - value: offline-second\n    name: personal\n  - value: offline-third\n    name: CON\n  - value: offline-fourth\n    name: aux\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL))
 	for _, method := range []string{pluginabi.MethodPluginRegister, pluginabi.MethodPluginReconfigure} {
 		if _, err := registerRPCPlugin(context.Background(), host, file.ID, client, method, yaml); err != nil {
 			t.Fatal(err)
@@ -864,7 +864,7 @@ func TestOpenCodeNativeTerminalShapes(t *testing.T) {
 	}
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
-	_, err = registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL)))
+	_, err = registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", server.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1030,7 +1030,7 @@ func TestOpenCodeNativeHTTPStreams(t *testing.T) {
 	}
 	client := newGuardedPluginClient(native)
 	defer client.Shutdown()
-	plug, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - api-key: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", upstream.URL)))
+	plug, err := registerRPCPlugin(context.Background(), host, file.ID, client, pluginabi.MethodPluginRegister, []byte(fmt.Sprintf("api-keys:\n  - value: offline-test-key\nbase-url: %s\nallow-http: true\nmodels-dev:\n  enabled: false\n", upstream.URL)))
 	if err != nil {
 		t.Fatal(err)
 	}

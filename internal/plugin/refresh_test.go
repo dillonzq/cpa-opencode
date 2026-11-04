@@ -21,8 +21,8 @@ const (
 	cooledRefreshKey  = "sk-refresh-cooled-key"
 	goodRefreshKey    = "sk-refresh-good-key"
 	refreshTwoKeyYAML = "api-keys:\n" +
-		"  - api-key: " + cooledRefreshKey + "\n" +
-		"  - api-key: " + goodRefreshKey + "\n" +
+		"  - value: " + cooledRefreshKey + "\n" +
+		"  - value: " + goodRefreshKey + "\n" +
 		"catalog-url: https://catalog.test/models\nmodels-dev:\n  enabled: false\n"
 )
 
@@ -118,7 +118,7 @@ func TestRefreshDoesNotSendConfiguredKeys(t *testing.T) {
 // field quoted (%q), so no raw newline can forge log lines (CWE-117).
 func TestRefreshUnsupportedLogQuotesNewlineIDs(t *testing.T) {
 	const evilID = "evil\n2027-01-01 ERROR forged host.log line"
-	cfg, err := config.Load([]byte("api-keys:\n  - api-key: sk-refresh-evil-key\n" +
+	cfg, err := config.Load([]byte("api-keys:\n  - value: sk-refresh-evil-key\n" +
 		"catalog-url: https://catalog.test/models\n"))
 	if err != nil {
 		t.Fatalf("load config: %v", err)

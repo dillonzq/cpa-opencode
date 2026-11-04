@@ -1566,7 +1566,7 @@ func TestExecuteUsesSelectedAuthKeyWithoutFallback(t *testing.T) {
 	}))}
 	m := NewManager(NewHostBridge(f.call))
 	t.Cleanup(func() { _, _ = m.HandleCall("plugin.shutdown", nil) })
-	if _, err := m.HandleCall("plugin.register", lifecycleRequestBody(strings.Replace(testValidYAML, "models-dev:", "  - api-key: "+customKey+"\nmodels-dev:", 1))); err != nil {
+	if _, err := m.HandleCall("plugin.register", lifecycleRequestBody(strings.Replace(testValidYAML, "models-dev:", "  - value: "+customKey+"\nmodels-dev:", 1))); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 
@@ -1608,7 +1608,7 @@ func TestExecuteStreamUsesSelectedAuthKey(t *testing.T) {
 		}
 		return hostOK(map[string]any{}), nil
 	})
-	if _, err := m.HandleCall("plugin.register", lifecycleRequestBody(strings.Replace(testValidYAML, "models-dev:", "  - api-key: "+customKey+"\nmodels-dev:", 1))); err != nil {
+	if _, err := m.HandleCall("plugin.register", lifecycleRequestBody(strings.Replace(testValidYAML, "models-dev:", "  - value: "+customKey+"\nmodels-dev:", 1))); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	resp, err := m.HandleCall("executor.execute_stream",

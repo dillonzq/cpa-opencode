@@ -1,3 +1,17 @@
+# v0.3.0
+
+## Breaking configuration change
+
+- Rename `plugins.configs.cpa-opencode.api-keys[].api-key` to `plugins.configs.cpa-opencode.api-keys[].value`. Update your CPA configuration before upgrading; the old `api-key` entry field is rejected, including when supplied alongside `value`.
+- Environment variable expansion now uses `api-keys[].value`. Optional `name` and `workspace-id` fields are unchanged.
+- Update configuration metadata, validation messages, examples and both language guides; migrate unit and native host integration fixtures to the new field.
+
+## Compatibility and verification
+
+- Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
+- Release packages include five platform ZIPs and one combined `checksums.txt`.
+- Automated tests use local mock upstreams; live paid inference and account billing access require separate verification.
+
 # v0.2.0
 
 ## Breaking configuration change

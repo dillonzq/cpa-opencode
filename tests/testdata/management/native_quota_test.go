@@ -101,10 +101,10 @@ func TestOpenCodeNativePAYGQuotaAndCooldown(t *testing.T) {
 	settings := fmt.Sprintf(`enabled: true
 api-keys:
   - name: A
-    api-key: offline-a
+    value: offline-a
     workspace-id: workspace-offline-a
   - name: B
-    api-key: offline-b
+    value: offline-b
     workspace-id: workspace-offline-b
 base-url: %s
 console-url: %s/console

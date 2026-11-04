@@ -127,7 +127,7 @@ type rawPrefix struct {
 
 type rawKey struct {
 	Name        string `yaml:"name"`
-	Value       string `yaml:"api-key"`
+	Value       string `yaml:"value"`
 	WorkspaceID string `yaml:"workspace-id"`
 }
 
@@ -140,7 +140,7 @@ var (
 	validProtocols = map[string]bool{"chat-completions": true, "messages": true, "responses": true, "gemini": true}
 )
 
-// Load decodes YAML, expands ${VAR} references in api-key values only,
+// Load decodes YAML, expands ${VAR} references in api-keys[].value only,
 // applies defaults, and validates. Decode errors never echo
 // decoded node values — a malformed entry (e.g. a bare-scalar API key)
 // must not leak into the invalid_config envelope the host logs.
@@ -289,7 +289,7 @@ func (c Config) validate() error {
 	}
 	for i, k := range c.Credentials {
 		if k.Value == "" {
-			return fmt.Errorf("api-keys[%d].api-key: expanded to empty", i)
+			return fmt.Errorf("api-keys[%d].value: expanded to empty", i)
 		}
 		if strings.ContainsAny(k.Value+k.WorkspaceID, "\r\n") {
 			return fmt.Errorf("api-keys[%d]: headers must not contain newlines", i)

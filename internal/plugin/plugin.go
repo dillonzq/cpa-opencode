@@ -233,7 +233,7 @@ func pluginConfigFields() []pluginapi.ConfigField {
 		{
 			Name:        "api-keys",
 			Type:        pluginapi.ConfigFieldTypeArray,
-			Description: "OpenCode API keys: api-key, optional name and workspace-id. Supports ${ENV_VAR} expansion in api-key only.",
+			Description: "OpenCode API keys: value, optional name and workspace-id. Supports ${ENV_VAR} expansion in value only.",
 		},
 		{
 			Name:        "base-url",

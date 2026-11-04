@@ -15,7 +15,7 @@ func TestRemovedCredentialCannotExecuteOrPublishModels(t *testing.T) {
 	f := &fakeCaller{responder: catalogResponder(true, testCatalogJSON)}
 	m := NewManager(NewHostBridge(f.call))
 	t.Cleanup(func() { _, _ = m.HandleCall(pluginabi.MethodPluginShutdown, nil) })
-	before := "api-keys:\n  - name: A\n    api-key: key-a\n  - name: B\n    api-key: key-b\nmodels-dev:\n  enabled: false\n"
+	before := "api-keys:\n  - name: A\n    value: key-a\n  - name: B\n    value: key-b\nmodels-dev:\n  enabled: false\n"
 	decodeEnv(t, mustHandle(t, m, pluginabi.MethodPluginRegister, lifecycleRequestBody(before)))
 	req := pluginapi.AuthModelRequest{AuthProvider: ProviderID, Attributes: map[string]string{"api_key": "key-b"}}
 	var models pluginapi.ModelResponse
@@ -23,7 +23,7 @@ func TestRemovedCredentialCannotExecuteOrPublishModels(t *testing.T) {
 	if len(models.Models) != 1 {
 		t.Fatal("configured credential did not publish models")
 	}
-	after := strings.ReplaceAll(before, "  - name: B\n    api-key: key-b\n", "")
+	after := strings.ReplaceAll(before, "  - name: B\n    value: key-b\n", "")
 	decodeEnv(t, mustHandle(t, m, pluginabi.MethodPluginReconfigure, lifecycleRequestBody(after)))
 	decodeResult(t, mustHandle(t, m, pluginabi.MethodModelForAuth, mustJSON(req)), &models)
 	if len(models.Models) != 0 {

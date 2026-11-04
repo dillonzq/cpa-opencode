@@ -69,9 +69,9 @@
 
 ## 配置
 
-从 v0.1.0 升级时，将配置字段 `credentials` 改名为 `api-keys`，列表条目字段不变。旧字段不再接受。
+升级到 v0.3.0 时，将 `api-keys[].api-key` 改为 `api-keys[].value`。从 v0.1.0 升级时，还需将 `credentials` 改为 `api-keys`。旧字段不再接受。
 
-设置位于 `plugins.configs.cpa-opencode`，全局插件开关和此插件开关均需启用。未知插件字段会报错；环境变量仅在 `api-keys[].api-key` 展开。
+设置位于 `plugins.configs.cpa-opencode`，全局插件开关和此插件开关均需启用。未知插件字段会报错；环境变量仅在 `api-keys[].value` 展开。
 
 ### 最小配置
 
@@ -84,7 +84,7 @@ plugins:
       enabled: true
       api-keys:
         - name: Personal
-          api-key: "${OPENCODE_API_KEY}"
+          value: "${OPENCODE_API_KEY}"
 ```
 
 在 CPA 进程环境中设置 `OPENCODE_API_KEY`。请求 CPA 使用 **CPA 客户端密钥**；以上 OpenCode 密钥用于上游。未设置的环境变量展开为空值，会导致校验失败。
@@ -94,13 +94,13 @@ plugins:
 ```yaml
 api-keys:
   - name: Personal
-    api-key: "${OPENCODE_API_KEY}"
+    value: "${OPENCODE_API_KEY}"
   - name: Team
-    api-key: "${OPENCODE_TEAM_API_KEY}"
+    value: "${OPENCODE_TEAM_API_KEY}"
     # workspace-id: org_example
 ```
 
-每项支持 `name`、`api-key` 和可选 `workspace-id`。当前 API key 已绑定工作区，通常无需额外指定；显式设置后，Console 查询使用 `x-org-id`，推理使用 `x-opencode-org-id`。
+每项支持 `name`、`value` 和可选 `workspace-id`。当前 API key 已绑定工作区，通常无需额外指定；显式设置后，Console 查询使用 `x-org-id`，推理使用 `x-opencode-org-id`。
 
 ### 配置选项
 
@@ -249,7 +249,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.2.0'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
+版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.3.0'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
 
 ## 测试
 

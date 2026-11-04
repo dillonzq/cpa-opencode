@@ -6,9 +6,9 @@ plugins:
       enabled: true
       api-keys:
         - name: Personal
-          api-key: "${OPENCODE_API_KEY}"
+          value: "${OPENCODE_API_KEY}"
         - name: Team
-          api-key: "${OPENCODE_TEAM_API_KEY}"
+          value: "${OPENCODE_TEAM_API_KEY}"
           # Optional for keys requiring explicit workspace selection.
           # workspace-id: org_example
       base-url: https://opencode.ai/inference
