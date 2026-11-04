@@ -69,6 +69,8 @@ Release archives follow the [plugin store requirements](https://github.com/route
 
 ## Configuration
 
+Upgrading from v0.1.0: rename the `credentials` configuration field to `api-keys`; entry fields are unchanged. The old field is rejected.
+
 Settings belong under `plugins.configs.cpa-opencode`. Both the global plugin switch and the plugin's own switch must be enabled. Unknown plugin fields are rejected; environment variables expand only in `api-keys[].api-key`.
 
 ### Minimal configuration
@@ -247,7 +249,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.1.0'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
+Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.2.0'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
 
 ## Testing
 

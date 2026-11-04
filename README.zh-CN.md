@@ -69,6 +69,8 @@
 
 ## 配置
 
+从 v0.1.0 升级时，将配置字段 `credentials` 改名为 `api-keys`，列表条目字段不变。旧字段不再接受。
+
 设置位于 `plugins.configs.cpa-opencode`，全局插件开关和此插件开关均需启用。未知插件字段会报错；环境变量仅在 `api-keys[].api-key` 展开。
 
 ### 最小配置
@@ -247,7 +249,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.1.0'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
+版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.2.0'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
 
 ## 测试
 

@@ -1,3 +1,20 @@
+# v0.2.0
+
+## Breaking configuration change
+
+- Rename `plugins.configs.cpa-opencode.credentials` to `plugins.configs.cpa-opencode.api-keys`. Before upgrading, rename this field in your CPA configuration; the old `credentials` field is rejected. Entries keep the same `api-key`, optional `name` and `workspace-id` fields.
+- Update plugin configuration metadata, validation messages, examples and both language guides to use `api-keys`.
+
+## Release packages
+
+- Align release packages with plugin store requirements: five platform ZIPs and one combined `checksums.txt`. Each ZIP contains the platform library and `LICENSE` at its root.
+
+## Compatibility and verification
+
+- Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
+- Verify your platform ZIP against `checksums.txt` before installation.
+- Production tests, native host integration tests, race checks and vet cover local mock upstreams; live paid inference and account billing access require separate verification.
+
 # v0.1.0
 
 Initial OpenCode pay-as-you-go provider for CLIProxyAPI v8.
@@ -5,7 +22,6 @@ Initial OpenCode pay-as-you-go provider for CLIProxyAPI v8.
 - Register provider `opencode` and discover the PAYG model catalog.
 - Serve Chat Completions, Responses, Messages and Gemini requests with streaming, tools, reasoning and cancellation.
 - Materialize multiple named credentials with stable identities and selected-key execution.
-- Configure keys under `api-keys` (replaces the `credentials` configuration field).
 - Expose per-credential member budgets and USD billing summaries through CPA v8 quota APIs.
 - Integrate CPA's native cooldown and targeted cooldown reset after payment or rate-limit failures.
 - Include offline native-host integration tests and platform-specific build artifacts.
