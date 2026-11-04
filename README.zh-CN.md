@@ -21,7 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555" alt="License: MIT"></a>
   <a href="https://help.router-for.me/plugin/development"><img src="https://img.shields.io/badge/CLIProxyAPI-8.0.0%2B-555" alt="CLIProxyAPI 8.0.0+"></a>
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26.10%2B-555" alt="源码构建需要 Go 1.26.10+"></a>
-  <a href="https://github.com/dillonzq/apix/tree/v0.1.0"><img src="https://img.shields.io/badge/apix-0.1.0-555" alt="apix 0.1.0"></a>
+  <a href="https://github.com/dillonzq/apix/tree/v0.2.0"><img src="https://img.shields.io/badge/apix-0.2.0-555" alt="apix 0.2.0"></a>
 </p>
 
 ---
@@ -36,7 +36,7 @@
 
 - **统一模型目录**：通过 CPA 的 `/v1/models` 发布 `opencode/<model-id>`，客户端无需分别配置各个模型家族。
 - **四种客户端协议**：支持 Chat Completions、Messages、Responses、Gemini 的普通和流式请求；模型支持时优先使用客户端原生协议。
-- **工具与推理内容**：使用 [apix v0.1.0](https://github.com/dillonzq/apix/tree/v0.1.0) 转换可表示的媒体、函数工具、工具结果和可读推理；原生请求保留协议专有字段。
+- **工具与推理内容**：使用 [apix v0.2.0](https://github.com/dillonzq/apix/tree/v0.2.0) 转换可表示的媒体、函数工具、工具结果和可读推理；原生请求保留协议专有字段。
 - **动态模型发现**：公开目录刷新、models.dev 元数据补全、显式模型声明及逐模型协议和端点覆盖。
 - **多凭证调度**：支持独立名称和稳定凭证 ID，由 CPA 在各协议间共享轮换与冷却状态。
 - **原生 PAYG quota**：通过 CPA v8 管理接口展示所选凭证的成员预算、余额及可用额度。

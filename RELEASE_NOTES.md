@@ -8,6 +8,7 @@
 
 ## Compatibility and verification
 
+- Upgrade apix from `v0.1.0` to `v0.2.0` for JSON editing, inline media and Responses stream improvements.
 - Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
 - Release packages include five platform ZIPs and one combined `checksums.txt`.
 - Automated tests use local mock upstreams; live paid inference and account billing access require separate verification.
