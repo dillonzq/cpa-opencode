@@ -11,6 +11,7 @@
 
 ## Compatibility and verification
 
+- Fix the quiesce test to track concurrent quota HTTP operations independently and bound cancellation waits.
 - Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
 - Verify your platform ZIP against `checksums.txt` before installation.
 - Production tests, native host integration tests, race checks and vet cover local mock upstreams; live paid inference and account billing access require separate verification.

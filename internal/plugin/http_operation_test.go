@@ -160,34 +160,49 @@ func TestQuiesceCancelsActiveHTTPHandlers(t *testing.T) {
 	for _, method := range []string{pluginabi.MethodExecutorExecute, pluginabi.MethodQuotaFetch} {
 		t.Run(method, func(t *testing.T) {
 			m, f := newExecManager(t)
-			started, released := make(chan struct{}), make(chan struct{})
+			requestCount := 1
+			if method == pluginabi.MethodQuotaFetch {
+				requestCount = 2 // budgets and billing run concurrently
+			}
+			started := make(chan struct{}, requestCount)
 			var activeMu sync.Mutex
-			activeID := ""
-			var once sync.Once
+			active := make(map[string]chan struct{})
+			t.Cleanup(func() {
+				activeMu.Lock()
+				defer activeMu.Unlock()
+				for id, released := range active {
+					close(released)
+					delete(active, id)
+				}
+			})
 			f.responder = wrapWithCatalog(multiRouteCatalog, func(method string, payload []byte) ([]byte, error) {
 				switch method {
 				case pluginabi.MethodHostHTTPDo:
 					var wire hostHTTPReq
 					_ = json.Unmarshal(payload, &wire)
+					released := make(chan struct{})
 					activeMu.Lock()
-					activeID = wire.OperationID
+					active[wire.OperationID] = released
 					activeMu.Unlock()
-					close(started)
+					started <- struct{}{}
 					<-released
 					return nil, context.Canceled
 				case pluginabi.MethodHostHTTPCancel:
 					var req httpOperationRequest
 					_ = json.Unmarshal(payload, &req)
 					activeMu.Lock()
-					ownedID := activeID
+					released, owned := active[req.OperationID]
+					if owned {
+						delete(active, req.OperationID)
+						close(released)
+					}
 					activeMu.Unlock()
 					// The registration's catalog reservation can race its successful
 					// completion; host cancellation of that distinct operation is harmless.
-					if req.OperationID == ownedID && ownedID != "" {
+					if owned {
 						if req.HostCallbackID != "scope-quiesce" {
 							t.Error("cancel lost request ownership")
 						}
-						once.Do(func() { close(released) })
 					}
 				}
 				return hostOK(struct{}{}), nil
@@ -203,12 +218,24 @@ func TestQuiesceCancelsActiveHTTPHandlers(t *testing.T) {
 			}
 			done := make(chan []byte, 1)
 			go func() { raw, _ := m.HandleCall(method, mustJSON(request)); done <- raw }()
-			select {
-			case <-started:
-			case <-time.After(time.Second):
-				t.Fatal("HTTP never started")
+			for range requestCount {
+				select {
+				case <-started:
+				case <-time.After(time.Second):
+					t.Fatal("HTTP never started")
+				}
 			}
-			raw, _ := m.HandleCall(pluginabi.MethodPluginQuiesce, nil)
+			quiesced := make(chan []byte, 1)
+			go func() {
+				raw, _ := m.HandleCall(pluginabi.MethodPluginQuiesce, nil)
+				quiesced <- raw
+			}()
+			var raw []byte
+			select {
+			case raw = <-quiesced:
+			case <-time.After(5 * time.Second):
+				t.Fatal("quiesce did not cancel all HTTP operations")
+			}
 			if !decodeEnv(t, raw).OK {
 				t.Fatal("quiesce failed")
 			}
