@@ -19,7 +19,7 @@ func requireErrContains(t *testing.T, err error, want string) {
 
 // withKey satisfies the at-least-one-key rule (spec 04 §3) for fixtures
 // that target a later validation check.
-const withKey = "credentials:\n  - api-key: sk-dummy\n"
+const withKey = "api-keys:\n  - api-key: sk-dummy\n"
 
 func TestModelMetadataOverrides(t *testing.T) {
 	c, err := Load([]byte(withKey + `models:
@@ -111,7 +111,7 @@ catalog-url: https://example.com/models
 model-prefix:
   enabled: true
   value: myprefix
-credentials:
+api-keys:
   - api-key: ${TEST_OG_KEY}
 catalog:
   refresh-interval: 1h
@@ -199,7 +199,7 @@ func TestProtocolEntryForms(t *testing.T) {
 
 func TestLoadEnvExpansion(t *testing.T) {
 	t.Setenv("TEST_OG_KEY", "expanded-secret")
-	c, err := Load([]byte("credentials:\n  - api-key: ${TEST_OG_KEY}\n"))
+	c, err := Load([]byte("api-keys:\n  - api-key: ${TEST_OG_KEY}\n"))
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestLoadEnvExpansion(t *testing.T) {
 }
 
 func TestLoadRejectsUnknownSettings(t *testing.T) {
-	for _, extra := range []string{"routing: {}", "excluded-models: []", "route-overrides: {}", "future-key: 1", "api-keys: []", "quota: {timout: 5s}"} {
+	for _, extra := range []string{"routing: {}", "excluded-models: []", "route-overrides: {}", "future-key: 1", "credentials: []", "quota: {timout: 5s}"} {
 		if _, err := Load([]byte(withKey + extra)); err == nil {
 			t.Errorf("accepted unknown setting %s", extra)
 		}
@@ -218,7 +218,7 @@ func TestLoadRejectsUnknownSettings(t *testing.T) {
 
 func TestPAYGCredentialAndQuotaConfiguration(t *testing.T) {
 	t.Setenv("PAYG_TEST_KEY", "  selected-key  ")
-	cfg, err := Load([]byte("credentials:\n  - name: Team\n    api-key: ${PAYG_TEST_KEY}\n    workspace-id: org_team\nconsole-url: https://console.test/workspace/\nquota:\n  timeout: 12s\n"))
+	cfg, err := Load([]byte("api-keys:\n  - name: Team\n    api-key: ${PAYG_TEST_KEY}\n    workspace-id: org_team\nconsole-url: https://console.test/workspace/\nquota:\n  timeout: 12s\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,8 +227,8 @@ func TestPAYGCredentialAndQuotaConfiguration(t *testing.T) {
 	}
 	for _, doc := range []string{
 		withKey + "quota: {timeout: 0s}", withKey + "quota: {timeout: 61s}", withKey + "quota: {timeout: invalid}",
-		withKey + "console-url: http://console.test", withKey + "---\ncredentials: []",
-		"credentials: [{api-key: 'same'}, {api-key: 'same'}]", "credentials: [{api-key: key, workspace-id: \"bad\\nheader\"}]",
+		withKey + "console-url: http://console.test", withKey + "---\napi-keys: []",
+		"api-keys: [{api-key: 'same'}, {api-key: 'same'}]", "api-keys: [{api-key: key, workspace-id: \"bad\\nheader\"}]",
 	} {
 		if _, err := Load([]byte(doc)); err == nil {
 			t.Fatalf("invalid config accepted: %s", doc)
@@ -305,8 +305,8 @@ func TestLoadRejections(t *testing.T) {
 	}{
 		{"invalid yaml syntax", "[unclosed", "decode config"},
 		{"unknown anchor has no line info", "request-timeout: *nope\n", "decode config: invalid YAML structure"},
-		{"bare-scalar api key never leaks", "credentials:\n  - sk-live-secret-123\n", "decode config: invalid YAML structure"},
-		{"keyless config rejected", "", "credentials: at least one key is required"},
+		{"bare-scalar api key never leaks", "api-keys:\n  - sk-live-secret-123\n", "decode config: invalid YAML structure"},
+		{"keyless config rejected", "", "api-keys: at least one key is required"},
 		{"request-timeout zero rejected", "request-timeout: 0s\n" + withKey, "request-timeout: must be positive"},
 		{
 			"duplicate protocol keys",
@@ -350,13 +350,13 @@ func TestLoadRejections(t *testing.T) {
 		},
 		{
 			"key expands to empty",
-			"credentials:\n  - api-key: ${TEST_OG_DEFINITELY_UNSET_VAR}\n",
-			"credentials[0].api-key: expanded to empty",
+			"api-keys:\n  - api-key: ${TEST_OG_DEFINITELY_UNSET_VAR}\n",
+			"api-keys[0].api-key: expanded to empty",
 		},
 		{
 			"second key expands to empty",
-			"credentials:\n  - api-key: literal-ok\n  - api-key: ${TEST_OG_DEFINITELY_UNSET_VAR}\n",
-			"credentials[1].api-key: expanded to empty",
+			"api-keys:\n  - api-key: literal-ok\n  - api-key: ${TEST_OG_DEFINITELY_UNSET_VAR}\n",
+			"api-keys[1].api-key: expanded to empty",
 		},
 		{"explicitly empty base-url", `base-url: ""`, "base-url: must not be empty"},
 		{"explicitly empty catalog-url", `catalog-url: ""`, "catalog-url: must not be empty"},
@@ -422,8 +422,8 @@ func TestLoadErrorsNeverLeakDecodedValues(t *testing.T) {
 		yaml   string
 		secret string
 	}{
-		{"bare-scalar api key", "credentials:\n  - sk-live-supersecret-42\n", "sk-live-supersecret-42"},
-		{"duplicate api key values", "credentials:\n  - api-key: sk-live-dupsecret-7\n  - api-key: sk-live-dupsecret-7\n", "sk-live-dupsecret-7"},
+		{"bare-scalar api key", "api-keys:\n  - sk-live-supersecret-42\n", "sk-live-supersecret-42"},
+		{"duplicate api key values", "api-keys:\n  - api-key: sk-live-dupsecret-7\n  - api-key: sk-live-dupsecret-7\n", "sk-live-dupsecret-7"},
 		{"userinfo credentials", "base-url: https://admin:p4ssw0rd@/v1\n", "p4ssw0rd"},
 	}
 	for _, tc := range cases {

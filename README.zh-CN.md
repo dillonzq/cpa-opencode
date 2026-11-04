@@ -69,7 +69,7 @@
 
 ## 配置
 
-设置位于 `plugins.configs.cpa-opencode`，全局插件开关和此插件开关均需启用。未知插件字段会报错；环境变量仅在 `credentials[].api-key` 展开。
+设置位于 `plugins.configs.cpa-opencode`，全局插件开关和此插件开关均需启用。未知插件字段会报错；环境变量仅在 `api-keys[].api-key` 展开。
 
 ### 最小配置
 
@@ -80,7 +80,7 @@ plugins:
   configs:
     cpa-opencode:
       enabled: true
-      credentials:
+      api-keys:
         - name: Personal
           api-key: "${OPENCODE_API_KEY}"
 ```
@@ -90,7 +90,7 @@ plugins:
 ### 多凭证配置
 
 ```yaml
-credentials:
+api-keys:
   - name: Personal
     api-key: "${OPENCODE_API_KEY}"
   - name: Team

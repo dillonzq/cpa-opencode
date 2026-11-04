@@ -69,7 +69,7 @@ Release archives follow the [plugin store requirements](https://github.com/route
 
 ## Configuration
 
-Settings belong under `plugins.configs.cpa-opencode`. Both the global plugin switch and the plugin's own switch must be enabled. Unknown plugin fields are rejected; environment variables expand only in `credentials[].api-key`.
+Settings belong under `plugins.configs.cpa-opencode`. Both the global plugin switch and the plugin's own switch must be enabled. Unknown plugin fields are rejected; environment variables expand only in `api-keys[].api-key`.
 
 ### Minimal configuration
 
@@ -80,7 +80,7 @@ plugins:
   configs:
     cpa-opencode:
       enabled: true
-      credentials:
+      api-keys:
         - name: Personal
           api-key: "${OPENCODE_API_KEY}"
 ```
@@ -90,7 +90,7 @@ Set `OPENCODE_API_KEY` in the environment of the CPA process. Requests to CPA us
 ### Multiple credentials
 
 ```yaml
-credentials:
+api-keys:
   - name: Personal
     api-key: "${OPENCODE_API_KEY}"
   - name: Team

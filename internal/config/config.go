@@ -112,7 +112,7 @@ type rawConfig struct {
 	} `yaml:"quota"`
 	CatalogURL       *string                     `yaml:"catalog-url"`
 	ModelPrefix      rawPrefix                   `yaml:"model-prefix"`
-	Credentials      []rawKey                    `yaml:"credentials"`
+	Credentials      []rawKey                    `yaml:"api-keys"`
 	Catalog          rawCatalog                  `yaml:"catalog"`
 	Protocols        map[string]ProtocolOverride `yaml:"protocols"`
 	AllowHTTP        bool                        `yaml:"allow-http"`
@@ -285,20 +285,20 @@ func (c Config) validate() error {
 		return err
 	}
 	if len(c.Credentials) == 0 {
-		return fmt.Errorf("credentials: at least one key is required")
+		return fmt.Errorf("api-keys: at least one key is required")
 	}
 	for i, k := range c.Credentials {
 		if k.Value == "" {
-			return fmt.Errorf("credentials[%d].api-key: expanded to empty", i)
+			return fmt.Errorf("api-keys[%d].api-key: expanded to empty", i)
 		}
 		if strings.ContainsAny(k.Value+k.WorkspaceID, "\r\n") {
-			return fmt.Errorf("credentials[%d]: headers must not contain newlines", i)
+			return fmt.Errorf("api-keys[%d]: headers must not contain newlines", i)
 		}
 	}
 	seen := make(map[string]bool, len(c.Credentials))
 	for _, k := range c.Credentials {
 		if seen[k.Value] {
-			return fmt.Errorf("credentials: duplicate key values are not allowed")
+			return fmt.Errorf("api-keys: duplicate key values are not allowed")
 		}
 		seen[k.Value] = true
 	}

@@ -409,7 +409,7 @@ func (st *mockOpenCode) chatRequest(t *testing.T) (path, auth string, body map[s
 
 func integrationYAML(baseURL string) string {
 	// The base URL is the server root; each API supplies its own path.
-	return fmt.Sprintf("base-url: %s\nallow-http: true\ncredentials:\n  - api-key: sk-test-1\nmodels-dev:\n  enabled: false\n", baseURL)
+	return fmt.Sprintf("base-url: %s\nallow-http: true\napi-keys:\n  - api-key: sk-test-1\nmodels-dev:\n  enabled: false\n", baseURL)
 }
 
 // newIntegrationManager registers a manager whose outbound calls flow
@@ -1097,7 +1097,7 @@ func TestResponsesUnsupportedFeatureDescriptive(t *testing.T) {
 // ---- AC §E upstream errors + §F security, end to end -------------------
 
 func integrationTwoKeyYAML(baseURL string) string {
-	return fmt.Sprintf("base-url: %s\nallow-http: true\ncredentials:\n  - api-key: sk-test-1\n  - api-key: sk-test-2\nmodels-dev:\n  enabled: false\n", baseURL)
+	return fmt.Sprintf("base-url: %s\nallow-http: true\napi-keys:\n  - api-key: sk-test-1\n  - api-key: sk-test-2\nmodels-dev:\n  enabled: false\n", baseURL)
 }
 
 func newTwoKeyManager(t *testing.T) (*Manager, *fakeCaller, *mockOpenCode) {
@@ -1196,7 +1196,7 @@ func TestHTTPSDefaultEnforced(t *testing.T) {
 	m := NewManager(NewHostBridge(f.call))
 	t.Cleanup(func() { _, _ = m.HandleCall("plugin.shutdown", nil) })
 
-	httpYAML := fmt.Sprintf("base-url: %s\ncredentials:\n  - api-key: sk-test-1\n", st.srv.URL)
+	httpYAML := fmt.Sprintf("base-url: %s\napi-keys:\n  - api-key: sk-test-1\n", st.srv.URL)
 	resp, err := m.HandleCall("plugin.register", lifecycleRequestBody(httpYAML))
 	if err != nil {
 		t.Fatalf("register: %v", err)

@@ -4,7 +4,7 @@ plugins:
   configs:
     cpa-opencode:
       enabled: true
-      credentials:
+      api-keys:
         - name: Personal
           api-key: "${OPENCODE_API_KEY}"
         - name: Team

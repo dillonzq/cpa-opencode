@@ -231,9 +231,9 @@ func pluginConfigFields() []pluginapi.ConfigField {
 		{Name: "models", Type: pluginapi.ConfigFieldTypeArray, Description: "Model declarations and metadata overrides using CPA provider fields: name, display-name, max-context-length, input-modalities, output-modalities, thinking; plus description, max-tokens, and protocols (`chat-completions|messages|responses|gemini: {enabled, endpoint}`), which switches protocols on or off on top of the built-in set and overrides endpoints. New IDs use family routing or protocols."},
 		{Name: "models-dev", Type: pluginapi.ConfigFieldTypeObject, Description: "Fallback metadata source (enabled, url, refresh-interval); priority: models > catalog > models.dev."},
 		{
-			Name:        "credentials",
+			Name:        "api-keys",
 			Type:        pluginapi.ConfigFieldTypeArray,
-			Description: "OpenCode credentials: api-key, optional name and workspace-id. Supports ${ENV_VAR} expansion in api-key only.",
+			Description: "OpenCode API keys: api-key, optional name and workspace-id. Supports ${ENV_VAR} expansion in api-key only.",
 		},
 		{
 			Name:        "base-url",

@@ -28,9 +28,9 @@ import (
 const (
 	testKey         = "sk-test-secret-1"
 	testCatalogJSON = `{"data":[{"id":"glm-5.3"}]}`
-	testValidYAML   = "credentials:\n  - api-key: " + testKey + "\nmodels-dev:\n  enabled: false\n"
+	testValidYAML   = "api-keys:\n  - api-key: " + testKey + "\nmodels-dev:\n  enabled: false\n"
 	dummyKey        = "sk-test"
-	dummyKeyYAML    = "credentials:\n  - api-key: " + dummyKey + "\nmodels-dev:\n  enabled: false\n"
+	dummyKeyYAML    = "api-keys:\n  - api-key: " + dummyKey + "\nmodels-dev:\n  enabled: false\n"
 )
 
 type capturedCall struct {
@@ -507,7 +507,7 @@ func TestRegistrationConfigFields(t *testing.T) {
 	}{
 		{"models", pluginapi.ConfigFieldTypeArray},
 		{"models-dev", pluginapi.ConfigFieldTypeObject},
-		{"credentials", pluginapi.ConfigFieldTypeArray},
+		{"api-keys", pluginapi.ConfigFieldTypeArray},
 		{"base-url", pluginapi.ConfigFieldTypeString},
 		{"console-url", pluginapi.ConfigFieldTypeString},
 		{"quota", pluginapi.ConfigFieldTypeObject},
@@ -540,14 +540,14 @@ func TestRegistrationConfigFields(t *testing.T) {
 
 func TestLifecycleMaterializesDeterministicAuthRecords(t *testing.T) {
 	first, second, third := "sk-materialize-a", "sk-materialize-b", "sk-materialize-c"
-	yamlText := "credentials:\n  - api-key: " + first + "\n  - api-key: " + second + "\n"
+	yamlText := "api-keys:\n  - api-key: " + first + "\n  - api-key: " + second + "\n"
 	f := &fakeCaller{responder: catalogResponder(true, testCatalogJSON)}
 	m := NewManager(NewHostBridge(f.call))
 	t.Cleanup(func() { _, _ = m.HandleCall("plugin.shutdown", nil) })
 	if _, err := m.HandleCall("plugin.register", lifecycleRequestBody(yamlText)); err != nil {
 		t.Fatalf("register: %v", err)
 	}
-	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("credentials:\n  - api-key: "+second+"\n  - api-key: "+first+"\n")); err != nil {
+	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("api-keys:\n  - api-key: "+second+"\n  - api-key: "+first+"\n")); err != nil {
 		t.Fatalf("reconfigure: %v", err)
 	}
 	calls := f.callsOf(pluginabi.MethodHostAuthSave)
@@ -582,7 +582,7 @@ func TestLifecycleMaterializesDeterministicAuthRecords(t *testing.T) {
 	if len(seen) != 2 {
 		t.Fatalf("materialized keys = %v", seen)
 	}
-	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("credentials:\n  - api-key: "+first+"\n")); err != nil {
+	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("api-keys:\n  - api-key: "+first+"\n")); err != nil {
 		t.Fatalf("removed-key reconfigure: %v", err)
 	}
 	// No delete callback exists in the pinned ABI: the old record is stale and
@@ -590,7 +590,7 @@ func TestLifecycleMaterializesDeterministicAuthRecords(t *testing.T) {
 	if len(f.callsOf(pluginabi.MethodHostAuthSave)) != 2 {
 		t.Fatalf("removed-key reconfigure changed save count = %d, want 2", len(f.callsOf(pluginabi.MethodHostAuthSave)))
 	}
-	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("credentials:\n  - api-key: "+first+"\n  - api-key: "+third+"\n")); err != nil {
+	if _, err := m.HandleCall("plugin.reconfigure", lifecycleRequestBody("api-keys:\n  - api-key: "+first+"\n  - api-key: "+third+"\n")); err != nil {
 		t.Fatalf("new-key reconfigure: %v", err)
 	}
 	calls = f.callsOf(pluginabi.MethodHostAuthSave)
