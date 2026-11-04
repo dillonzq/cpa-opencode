@@ -27,6 +27,9 @@ const ProviderID = "opencode"
 // pluginName is the identifier used for configuration and management routes.
 const pluginName = "cpa-opencode"
 
+// pluginDisplayName is the human-readable brand shown by the host.
+const pluginDisplayName = "OpenCode"
+
 // githubRepoURL satisfies the host's validPlugin gate (host.go
 // validPlugin rejects empty Metadata.GitHubRepository).
 const githubRepoURL = "https://github.com/dillonzq/cpa-opencode"
@@ -285,7 +288,7 @@ func registrationEnvelope() []byte {
 	return okEnvelope(registrationResult{
 		SchemaVersion: pluginabi.SchemaVersion,
 		Metadata: pluginapi.Metadata{
-			Name:             pluginName,
+			Name:             pluginDisplayName,
 			Version:          pluginVersion,
 			Author:           "dillonzq",
 			GitHubRepository: githubRepoURL,
