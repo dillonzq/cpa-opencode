@@ -1,3 +1,16 @@
+# v0.4.0
+
+## Fixes and dependencies
+
+- Display the plugin brand as `OpenCode` in registration metadata. The plugin ID remains `cpa-opencode`, and the provider ID remains `opencode`.
+- Upgrade apix from `v0.1.0` to `v0.2.0` for JSON editing, inline media and Responses stream improvements.
+
+## Compatibility and verification
+
+- No configuration changes from `v0.3.0`. Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
+- Release packages include five platform ZIPs and one combined `checksums.txt`.
+- Production tests, native host integration tests, race checks and vet pass against local mock upstreams. Live paid inference and account billing access require separate verification.
+
 # v0.3.0
 
 ## Breaking configuration change
@@ -8,7 +21,6 @@
 
 ## Compatibility and verification
 
-- Upgrade apix from `v0.1.0` to `v0.2.0` for JSON editing, inline media and Responses stream improvements.
 - Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
 - Release packages include five platform ZIPs and one combined `checksums.txt`.
 - Automated tests use local mock upstreams; live paid inference and account billing access require separate verification.
