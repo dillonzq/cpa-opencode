@@ -165,6 +165,7 @@ Add these settings inside the plugin configuration:
 ```yaml
 models:
   - name: custom-model
+    alias: my-model
     display-name: Custom
     max-context-length: 128000
     max-tokens: 8192
@@ -178,6 +179,8 @@ models:
         enabled: true
         endpoint: /openai/v1/responses
 ```
+
+`models[].alias` follows CPA's `name`/`alias` convention: the alias replaces the upstream `name` in the published model ID, the prefix still applies, and requests still send `name` upstream. The example above publishes `opencode/my-model`. Aliases must be unique; when an alias collides with another model's ID, the later model is excluded and the reason appears in diagnostics. Use it to publish the same name as another provider so CPA pools both, for example `name: minimax-m3` with `alias: MiniMax-M3`.
 
 `models[].protocols` adds or disables routes and overrides model-specific paths. Top-level `protocols` only overrides paths globally. A listed protocol is enabled unless `enabled: false`. Gemini endpoint overrides must include `{model}`. Model endpoint overrides take precedence over global overrides and defaults.
 

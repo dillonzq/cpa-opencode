@@ -165,6 +165,7 @@ Gemini 流式改用 `:streamGenerateContent?alt=sse`。所有协议均采用 `Au
 ```yaml
 models:
   - name: custom-model
+    alias: my-model
     display-name: Custom
     max-context-length: 128000
     max-tokens: 8192
@@ -178,6 +179,8 @@ models:
         enabled: true
         endpoint: /openai/v1/responses
 ```
+
+`models[].alias` 沿用 CPA 的 `name`/`alias` 约定，用别名替换对外发布 ID 中的上游 `name`；前缀仍会叠加，请求上游时仍发送 `name`。上例对外发布为 `opencode/my-model`。别名必须唯一；若别名与其他模型的 ID 冲突，后出现的模型会被排除，原因记录在诊断信息中。可借此与其他提供方发布同名模型，让 CPA 合为同一个模型池，例如 `name: minimax-m3` 配 `alias: MiniMax-M3`。
 
 `models[].protocols` 按模型添加、关闭协议并覆盖路径；顶层 `protocols` 仅设置全局路径。列出的协议默认开启，除非 `enabled: false`。Gemini 端点覆盖必须包含 `{model}`。路径优先级为模型覆盖、全局覆盖、内置默认值。
 
