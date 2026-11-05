@@ -1,3 +1,16 @@
+# v0.4.1
+
+## Features
+
+- Add `models[].alias` to rename a model's published ID. The alias replaces the upstream `name` in the client-facing ID, the model prefix still applies, and requests still send `name` upstream. For example, `name: minimax-m3` with `alias: MiniMax-M3` publishes `opencode/MiniMax-M3`, or `MiniMax-M3` with the prefix disabled, so CPA can pool it with another provider that publishes the same name.
+- Aliases must be unique and must not have surrounding whitespace. When an alias collides with another model's ID, the later model in catalog order is excluded and the reason appears in diagnostics. The original published ID no longer routes after aliasing; the bare upstream ID still does.
+
+## Compatibility and verification
+
+- Backward compatible with `v0.4.0`; configurations without `alias` publish the same model IDs. Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
+- Release packages include five platform ZIPs and one combined `checksums.txt`.
+- Production tests, native host integration tests, race checks and vet pass against local mock upstreams. Live paid inference and account billing access require separate verification.
+
 # v0.4.0
 
 ## Fixes and dependencies

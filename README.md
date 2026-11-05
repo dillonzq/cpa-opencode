@@ -252,7 +252,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.0'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
+Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.1'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
 
 ## Testing
 

@@ -252,7 +252,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.0'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
+版本元数据默认 `0.0.0-dev`。可通过 `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.1'` 注入版本。debug 诊断需要 debug 构建并设置 `CPA_OPENCODE_DEBUG=1`；生产构建不包含该日志器。
 
 ## 测试
 
