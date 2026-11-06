@@ -108,7 +108,7 @@ func (m *Manager) HandleCall(method string, request []byte) (resp []byte, err er
 			return ErrEnvelope("invalid_request", "malformed model request"), nil
 		}
 		m.mu.RLock()
-		active := m.cfg.HasCredential(strings.TrimSpace(req.Attributes["api_key"]))
+		active := m.cfg.HasAPIKey(strings.TrimSpace(req.Attributes["api_key"]))
 		m.mu.RUnlock()
 		if req.AuthProvider != "" && (req.AuthProvider != ProviderID || !active) {
 			return okEnvelope(pluginapi.ModelResponse{Provider: ProviderID, Models: []pluginapi.ModelInfo{}}), nil
@@ -322,7 +322,7 @@ func (m *Manager) handleLifecycle(request []byte) ([]byte, error) {
 	}
 	m.lifeMu.Lock()
 	defer m.lifeMu.Unlock()
-	debugTrace("lifecycle config_loaded key_count=%d prefix_enabled=%t prefix=%s", len(cfg.Credentials), cfg.ModelPrefix.Enabled, cfg.ModelPrefix.Value)
+	debugTrace("lifecycle config_loaded key_count=%d prefix_enabled=%t prefix=%s", len(cfg.APIKeys), cfg.ModelPrefix.Enabled, cfg.ModelPrefix.Value)
 	ctx, cancel := context.WithTimeout(m.workContext(), registerRefreshTimeout)
 	defer cancel()
 	if err := m.materializeAuthRecords(ctx, cfg); err != nil {
@@ -418,7 +418,7 @@ func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config)
 			existing[id] = struct{}{}
 		}
 	}
-	for i, key := range cfg.Credentials {
+	for i, key := range cfg.APIKeys {
 		digest := sha256.Sum256([]byte(key.Value))
 		hash := hex.EncodeToString(digest[:])
 		id := "opencode-key-" + hash

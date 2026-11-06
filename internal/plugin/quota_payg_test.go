@@ -50,7 +50,7 @@ func TestPAYGQuotaCredentialIsolationAndFreshness(t *testing.T) {
 		return hostOK(pluginapi.HTTPResponse{StatusCode: 200, Body: []byte(body)}), nil
 	}}
 	m := NewManager(NewHostBridge(f.call))
-	m.cfg = config.Config{ConsoleURL: "https://quota.test/console", Credentials: []config.Credential{{Value: "first", WorkspaceID: "workspace-first"}, {Value: "second", WorkspaceID: "workspace-second"}}}
+	m.cfg = config.Config{ConsoleURL: "https://quota.test/console", APIKeys: []config.APIKey{{Value: "first", WorkspaceID: "workspace-first"}, {Value: "second", WorkspaceID: "workspace-second"}}}
 	var wg sync.WaitGroup
 	for _, key := range []string{"first", "second", "first", "second"} {
 		wg.Go(func() {
@@ -179,7 +179,7 @@ func TestPAYGBillingMoneyPrecision(t *testing.T) {
 }
 
 func TestPAYGAuthRefreshPreservesState(t *testing.T) {
-	cfg := config.Config{Credentials: []config.Credential{{Name: "Work", Value: "key", WorkspaceID: "new-workspace"}}}
+	cfg := config.Config{APIKeys: []config.APIKey{{Name: "Work", Value: "key", WorkspaceID: "new-workspace"}}}
 	attrs := map[string]string{"api_key": "key", "workspace_id": "old-workspace", "proxy_url": "preserve"}
 	metadata := map[string]any{"disabled": true, "custom": "preserve"}
 	p := authProvider{cfg: cfg}

@@ -35,7 +35,7 @@ type ModelPrefix struct {
 	Value   string
 }
 
-type Credential struct {
+type APIKey struct {
 	Name        string
 	Value       string
 	WorkspaceID string
@@ -54,7 +54,7 @@ type Config struct {
 	QuotaTimeout     time.Duration
 	CatalogURL       string
 	ModelPrefix      ModelPrefix
-	Credentials      []Credential
+	APIKeys          []APIKey
 	Catalog          Catalog
 	Protocols        map[string]ProtocolOverride // endpoints for every model; switches live on models
 	AllowHTTP        bool
@@ -115,7 +115,7 @@ type rawConfig struct {
 	} `yaml:"quota"`
 	CatalogURL       *string                     `yaml:"catalog-url"`
 	ModelPrefix      rawPrefix                   `yaml:"model-prefix"`
-	Credentials      []rawKey                    `yaml:"api-keys"`
+	APIKeys          []rawAPIKey                 `yaml:"api-keys"`
 	Catalog          rawCatalog                  `yaml:"catalog"`
 	Protocols        map[string]ProtocolOverride `yaml:"protocols"`
 	AllowHTTP        bool                        `yaml:"allow-http"`
@@ -128,7 +128,7 @@ type rawPrefix struct {
 	Value   *string `yaml:"value"`
 }
 
-type rawKey struct {
+type rawAPIKey struct {
 	Name        string `yaml:"name"`
 	Value       string `yaml:"value"`
 	WorkspaceID string `yaml:"workspace-id"`
@@ -161,9 +161,9 @@ func Load(yamlBytes []byte) (Config, error) {
 	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
 		return Config{}, fmt.Errorf("decode config: expected one YAML document")
 	}
-	keys := make([]Credential, len(raw.Credentials))
-	for i, k := range raw.Credentials {
-		keys[i] = Credential{Value: strings.TrimSpace(os.ExpandEnv(k.Value)), Name: strings.TrimSpace(k.Name), WorkspaceID: strings.TrimSpace(k.WorkspaceID)}
+	keys := make([]APIKey, len(raw.APIKeys))
+	for i, k := range raw.APIKeys {
+		keys[i] = APIKey{Value: strings.TrimSpace(os.ExpandEnv(k.Value)), Name: strings.TrimSpace(k.Name), WorkspaceID: strings.TrimSpace(k.WorkspaceID)}
 	}
 	refreshInterval, err := parseDuration("catalog.refresh-interval", raw.Catalog.RefreshInterval, DefaultRefreshInterval)
 	if err != nil {
@@ -193,7 +193,7 @@ func Load(yamlBytes []byte) (Config, error) {
 			Enabled: orDefault(raw.ModelPrefix.Enabled, true),
 			Value:   orDefault(raw.ModelPrefix.Value, DefaultModelPrefix),
 		},
-		Credentials: keys,
+		APIKeys: keys,
 		Catalog: Catalog{
 			RefreshInterval:       refreshInterval,
 			StaleWhileUnavailable: orDefault(raw.Catalog.StaleWhileUnavailable, true),
@@ -228,20 +228,20 @@ func PublicID(c Config, upstreamID string) string {
 	return upstreamID
 }
 
-// HasCredential prevents persisted records for removed keys from executing.
+// HasAPIKey prevents persisted records for removed keys from executing.
 // A zero configuration is useful for direct SDK callers and unit fixtures;
 // registered plugin configurations always require credentials.
-func (c Config) HasCredential(key string) bool {
-	for _, entry := range c.Credentials {
+func (c Config) HasAPIKey(key string) bool {
+	for _, entry := range c.APIKeys {
 		if entry.Value == key {
 			return true
 		}
 	}
-	return len(c.Credentials) == 0
+	return len(c.APIKeys) == 0
 }
 
 func (c Config) WorkspaceID(key, stored string) string {
-	for _, entry := range c.Credentials {
+	for _, entry := range c.APIKeys {
 		if entry.Value == key {
 			return entry.WorkspaceID
 		}
@@ -294,10 +294,10 @@ func (c Config) validate() error {
 	if err := validateURL("catalog-url", c.CatalogURL, c.AllowHTTP); err != nil {
 		return err
 	}
-	if len(c.Credentials) == 0 {
+	if len(c.APIKeys) == 0 {
 		return fmt.Errorf("api-keys: at least one key is required")
 	}
-	for i, k := range c.Credentials {
+	for i, k := range c.APIKeys {
 		if k.Value == "" {
 			return fmt.Errorf("api-keys[%d].value: expanded to empty", i)
 		}
@@ -305,8 +305,8 @@ func (c Config) validate() error {
 			return fmt.Errorf("api-keys[%d]: headers must not contain newlines", i)
 		}
 	}
-	seen := make(map[string]bool, len(c.Credentials))
-	for _, k := range c.Credentials {
+	seen := make(map[string]bool, len(c.APIKeys))
+	for _, k := range c.APIKeys {
 		if seen[k.Value] {
 			return fmt.Errorf("api-keys: duplicate key values are not allowed")
 		}
