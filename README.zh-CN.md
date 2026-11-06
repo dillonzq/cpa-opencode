@@ -57,7 +57,8 @@
 | --- | --- | --- |
 | Linux | amd64 / arm64 | `cpa-opencode.so` |
 | macOS | amd64 / arm64 | `cpa-opencode.dylib` |
-| Windows | amd64 | `cpa-opencode.dll` |
+| Windows | amd64 / arm64 | `cpa-opencode.dll` |
+| FreeBSD | amd64 | `cpa-opencode.so` |
 
 发布包遵循[插件商店要求](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store#release-requirements)，命名为 `cpa-opencode_<version>_<goos>_<goarch>.zip`，版本号不含前导 `v`。每个 ZIP 的根目录包含对应平台的动态库和 `LICENSE`；统一的 `checksums.txt` 列出所有平台 ZIP 的 SHA-256。
 
@@ -266,7 +267,7 @@ go vet -tags debug ./... ./.github/scripts/...
 
 Linux/macOS 的 debug 集成测试通过临时 Go overlay，将生产版动态库加载进 CPA v8。使用本地模拟服务验证推理、流式、取消、逐凭证 quota、402 切换及定向清除冷却。不修改模块缓存；首次运行前通过 `go mod download all` 缓存 SDK 依赖。
 
-真实付费推理和账户余额读取需使用对应凭证单独验收，默认测试不产生付费请求。CI 构建 Linux amd64/arm64、macOS amd64/arm64 和 Windows amd64，每个压缩包包含动态库和许可证。每份 Actions 产物附带该平台的 `checksums.txt`；Release 将其汇总为覆盖全部五个 ZIP 的统一 `checksums.txt`。
+真实付费推理和账户余额读取需使用对应凭证单独验收，默认测试不产生付费请求。CI 构建 Linux amd64/arm64、macOS amd64/arm64、Windows amd64/arm64 和 FreeBSD amd64，每个压缩包包含动态库和许可证。Windows arm64 和 FreeBSD amd64 在 Linux 上交叉编译。每份 Actions 产物附带该平台的 `checksums.txt`；Release 将其汇总为覆盖全部七个 ZIP 的统一 `checksums.txt`。
 
 ## 许可证与图标
 

@@ -34,9 +34,9 @@ are supported by the release workflow.
    ```
 
 3. Wait for the tagged Build workflow. It validates the release notes, reruns
-   the tests and builds all five platform packages with version `0.1.0` embedded.
+   the tests and builds all seven platform packages with version `0.1.0` embedded.
    Only after every build succeeds does it create a GitHub Release **draft**
-   containing the version's notes, five ZIP archives and one `checksums.txt`
+   containing the version's notes, seven ZIP archives and one `checksums.txt`
    in sha256sum format, as required by the
    [plugin store](https://github.com/router-for-me/CLIProxyAPI-Plugins-Store#release-requirements).
    Archives use `cpa-opencode_<version>_<goos>_<goarch>.zip` (no leading `v`),
