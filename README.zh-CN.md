@@ -120,7 +120,9 @@ api-keys:
 | `models-dev.url` | `https://models.dev/api.json` | 使用其中的 `opencode` 服务商数据 |
 | `models-dev.refresh-interval` | `24h` | 元数据刷新间隔，至少 `1m` |
 | `quota.timeout` | `15s` | quota 查询超时，最多 `1m` |
-| `request-timeout` | `5m` | 上游请求总超时，包含流式消费 |
+| `request-timeout` | `5m` | 完整普通请求的超时，或流式请求收到上游状态码前的建立超时 |
+| `stream-idle-timeout` | `5m` | 上游流式数据块之间的最长间隔，每收到一块重新计时 |
+| `max-stream-duration` | `1h` | 单个流的最长时长，从开始建立算起 |
 | `max-response-bytes` | `67108864` | 普通推理响应大小上限，64 MiB |
 | `allow-http` | `false` | 本地测试时显式允许 HTTP |
 

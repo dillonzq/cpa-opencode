@@ -26,4 +26,6 @@ plugins:
       quota:
         timeout: 15s
       request-timeout: 5m
+      stream-idle-timeout: 5m
+      max-stream-duration: 1h
       max-response-bytes: 67108864
