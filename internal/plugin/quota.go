@@ -51,7 +51,7 @@ func (m *Manager) FetchQuota(parent context.Context, req pluginapi.QuotaFetchReq
 	m.mu.RLock()
 	cfg := m.cfg
 	m.mu.RUnlock()
-	if key == "" || !cfg.HasCredential(key) {
+	if key == "" || !cfg.HasAPIKey(key) {
 		return empty, fmt.Errorf("selected quota credential is unavailable")
 	}
 	if m.bridge == nil {

@@ -70,7 +70,7 @@ func (authProvider) PollLogin(context.Context, pluginapi.AuthLoginPollRequest) (
 func (p authProvider) RefreshAuth(_ context.Context, req pluginapi.AuthRefreshRequest) (pluginapi.AuthRefreshResponse, error) {
 	debugTrace("auth refresh request provider=%s id=%s storage_json_bytes=%d attr_names=%v metadata_names=%v", req.AuthProvider, req.AuthID, len(req.StorageJSON), mapKeys(req.Attributes), mapKeys(req.Metadata))
 	key := strings.TrimSpace(req.Attributes["api_key"])
-	if req.AuthProvider != ProviderID || key == "" || !p.cfg.HasCredential(key) {
+	if req.AuthProvider != ProviderID || key == "" || !p.cfg.HasAPIKey(key) {
 		return pluginapi.AuthRefreshResponse{}, fmt.Errorf("selected OpenCode credential is unavailable")
 	}
 	attrs := maps.Clone(req.Attributes)
@@ -107,7 +107,7 @@ func mapKeys[T any](values map[string]T) []string {
 // Labels are presentation only. Stable auth IDs and stored host metadata are preserved.
 func accountLabel(cfg config.Config, key, existing string, fallbackIndex int) string {
 	index := fallbackIndex
-	for i, entry := range cfg.Credentials {
+	for i, entry := range cfg.APIKeys {
 		if entry.Value == key {
 			if name := strings.TrimSpace(entry.Name); name != "" {
 				return name
@@ -120,7 +120,7 @@ func accountLabel(cfg config.Config, key, existing string, fallbackIndex int) st
 	if label != "" {
 		return label
 	}
-	if len(cfg.Credentials) > 1 {
+	if len(cfg.APIKeys) > 1 {
 		return fmt.Sprintf("OpenCode %d", index+1)
 	}
 	return "OpenCode"

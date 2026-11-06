@@ -197,8 +197,8 @@ func mustExecute(t *testing.T, m *Manager, model, format string, body []byte) pl
 	t.Helper()
 	m.mu.RLock()
 	key := ""
-	if len(m.cfg.Credentials) > 0 {
-		key = m.cfg.Credentials[0].Value
+	if len(m.cfg.APIKeys) > 0 {
+		key = m.cfg.APIKeys[0].Value
 	}
 	m.mu.RUnlock()
 	resp, err := m.HandleCall("executor.execute", execReqBodyWithKey(model, format, body, false, key))

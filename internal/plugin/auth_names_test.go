@@ -135,7 +135,7 @@ func TestMaterializeAuthNamesPreserveExistingFiles(t *testing.T) {
 		return hostOK(struct{}{}), nil
 	}}
 	m := NewManager(NewHostBridge(f.call))
-	cfg := config.Config{Credentials: []config.Credential{{Value: "offline-new-first", Name: "Personal"}, {Value: "offline-new-second", Name: "personal"}, {Value: "offline-new-third", Name: "CON"}}}
+	cfg := config.Config{APIKeys: []config.APIKey{{Value: "offline-new-first", Name: "Personal"}, {Value: "offline-new-second", Name: "personal"}, {Value: "offline-new-third", Name: "CON"}}}
 	for i := 0; i < 2; i++ {
 		if err := m.materializeAuthRecords(context.Background(), cfg); err != nil {
 			t.Fatal(err)
@@ -163,7 +163,7 @@ func TestMaterializeAuthNamesPreserveExistingFiles(t *testing.T) {
 		if err := json.Unmarshal(req.JSON, &record); err != nil {
 			t.Fatal(err)
 		}
-		if record.Label != cfg.Credentials[i].Name {
+		if record.Label != cfg.APIKeys[i].Name {
 			t.Fatal("filename escaping changed the account label")
 		}
 	}

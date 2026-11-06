@@ -87,8 +87,8 @@ func TestLoadMinimalAppliesAllDefaults(t *testing.T) {
 	if !c.ModelPrefix.Enabled || c.ModelPrefix.Value != "opencode" {
 		t.Errorf("ModelPrefix = %+v", c.ModelPrefix)
 	}
-	if len(c.Credentials) != 1 || c.Credentials[0].Value != "sk-dummy" {
-		t.Errorf("Credentials = %+v", c.Credentials)
+	if len(c.APIKeys) != 1 || c.APIKeys[0].Value != "sk-dummy" {
+		t.Errorf("APIKeys = %+v", c.APIKeys)
 	}
 	if c.Catalog.RefreshInterval != 15*time.Minute {
 		t.Errorf("RefreshInterval = %v", c.Catalog.RefreshInterval)
@@ -159,8 +159,8 @@ max-response-bytes: 1024
 	if !c.ModelPrefix.Enabled || c.ModelPrefix.Value != "myprefix" {
 		t.Errorf("ModelPrefix = %+v", c.ModelPrefix)
 	}
-	if len(c.Credentials) != 1 || c.Credentials[0].Value != "test-secret-value" {
-		t.Errorf("Credentials = %+v", c.Credentials)
+	if len(c.APIKeys) != 1 || c.APIKeys[0].Value != "test-secret-value" {
+		t.Errorf("APIKeys = %+v", c.APIKeys)
 	}
 	if c.Catalog.RefreshInterval != time.Hour {
 		t.Errorf("RefreshInterval = %v", c.Catalog.RefreshInterval)
@@ -214,8 +214,8 @@ func TestLoadEnvExpansion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	if len(c.Credentials) != 1 || c.Credentials[0].Value != "expanded-secret" {
-		t.Fatalf("Credentials = %+v", c.Credentials)
+	if len(c.APIKeys) != 1 || c.APIKeys[0].Value != "expanded-secret" {
+		t.Fatalf("APIKeys = %+v", c.APIKeys)
 	}
 }
 
@@ -233,7 +233,7 @@ func TestPAYGCredentialAndQuotaConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Credentials[0].Value != "selected-key" || cfg.Credentials[0].WorkspaceID != "org_team" || cfg.ConsoleURL != "https://console.test/workspace" || cfg.QuotaTimeout != 12*time.Second {
+	if cfg.APIKeys[0].Value != "selected-key" || cfg.APIKeys[0].WorkspaceID != "org_team" || cfg.ConsoleURL != "https://console.test/workspace" || cfg.QuotaTimeout != 12*time.Second {
 		t.Fatalf("incorrect PAYG config: %+v", cfg)
 	}
 	for _, doc := range []string{

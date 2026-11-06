@@ -46,7 +46,7 @@ func TestReadableAuthFilenameAtColdStartDoesNotDuplicate(t *testing.T) {
 		return hostOK(map[string]any{}), nil
 	}}
 	m := NewManager(NewHostBridge(f.call))
-	if err := m.materializeAuthRecords(context.Background(), config.Config{Credentials: []config.Credential{{Value: "existing"}}}); err != nil {
+	if err := m.materializeAuthRecords(context.Background(), config.Config{APIKeys: []config.APIKey{{Value: "existing"}}}); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.callsOf(pluginabi.MethodHostAuthSave)) != 0 {

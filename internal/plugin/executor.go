@@ -60,7 +60,7 @@ func (m *Manager) resolveExecution(req executorRequest) (*resolvedExecution, []b
 	if key == "" {
 		return nil, classEnvelope(&errclass.Error{Class: errclass.ClassAuth, Message: "selected auth has no api key"})
 	}
-	if !cfg.HasCredential(key) {
+	if !cfg.HasAPIKey(key) {
 		return nil, classEnvelope(&errclass.Error{Class: errclass.ClassAuth, Message: "selected credential is not configured", StatusCode: http.StatusUnauthorized})
 	}
 	// CPA parses a model-name thinking suffix (model(high)) for its own
@@ -124,7 +124,7 @@ func (m *Manager) handleExecute(request []byte) ([]byte, error) {
 		return classEnvelope(eErr), nil
 	}
 	url := res.route.URL(res.cfg.BaseURL, res.rec.UpstreamID, false)
-	debugTrace("executor resolved public_model=%s upstream_model=%s route=%s url=%s key_count=%d", req.Model, res.rec.UpstreamID, res.route.Protocol, url, len(res.cfg.Credentials))
+	debugTrace("executor resolved public_model=%s upstream_model=%s route=%s url=%s key_count=%d", req.Model, res.rec.UpstreamID, res.route.Protocol, url, len(res.cfg.APIKeys))
 	debugTrace("executor sending non-stream url=%s body_len=%d", url, len(upstreamBody))
 	ctx, cancel := context.WithTimeout(withHostCallbackScope(m.workContext(), req.HostCallbackID), res.cfg.RequestTimeout)
 	defer cancel()
