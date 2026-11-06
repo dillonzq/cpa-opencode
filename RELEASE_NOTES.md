@@ -2,14 +2,14 @@
 
 ## Behavior changes
 
-- `request-timeout` no longer limits an open stream. It covers a whole non-streaming request, and for a stream only the opening, until the upstream status arrives.
+- `request-timeout` no longer limits an open stream. It covers a whole non-streaming request, and for a stream only the opening, until the upstream status arrives; for status 400 or higher it also covers reading the error body.
 - New `stream-idle-timeout` (default `5m`) ends a stream that receives no chunk for that long. Each chunk restarts it, and time spent delivering a chunk downstream does not count.
 - New `max-stream-duration` (default `1h`) caps one stream's lifetime from the start of opening. Both new settings must be positive durations.
 
 ## Fixes
 
 - Long but active streams, such as large outputs or long reasoning, are no longer cut off after `request-timeout` (default `5m`) while the upstream is still sending data.
-- A stream ended by a limit now reports which one it hit: `stream did not open within request-timeout`, `stream exceeded stream-idle-timeout`, or `stream exceeded max-stream-duration`. Client or shutdown cancellation reports `stream canceled`.
+- A stream ended by a limit now reports which one it hit: `stream did not open within request-timeout`, `stream exceeded stream-idle-timeout`, or `stream exceeded max-stream-duration`. Client or shutdown cancellation reports `stream canceled`. An upstream error status whose body read is cut off by a limit keeps its status classification, and its message names the limit.
 
 ## Compatibility and verification
 

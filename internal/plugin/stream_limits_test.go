@@ -79,25 +79,33 @@ func runLimitedStream(t *testing.T, extraYAML string, responder func(string, []b
 	return env, string(downCloses[0].payload)
 }
 
+// requireCleanClose fails unless the stream opened and then closed without
+// error, so a failed open cannot pass as a stream that was never cut off.
+func requireCleanClose(t *testing.T, env pluginabi.Envelope, closePayload string) {
+	t.Helper()
+	if !env.OK {
+		t.Fatalf("stream failed to open: %+v", env.Error)
+	}
+	if strings.Contains(closePayload, `"error"`) {
+		t.Fatalf("stream closed with error: %s", closePayload)
+	}
+}
+
 func TestExecuteStreamActiveStreamOutlivesRequestTimeout(t *testing.T) {
 	// The stream lasts several times request-timeout but never goes quiet
 	// for stream-idle-timeout, so it must complete normally.
-	_, closePayload := runLimitedStream(t,
+	env, closePayload := runLimitedStream(t,
 		"request-timeout: 30ms\nstream-idle-timeout: 1s\nmax-stream-duration: 10s\n",
 		tickingUpstream(10*time.Millisecond, 15))
-	if strings.Contains(closePayload, `"error"`) {
-		t.Fatalf("active stream closed with error: %s", closePayload)
-	}
+	requireCleanClose(t, env, closePayload)
 }
 
 func TestExecuteStreamIdleTimeoutRestartsOnEachChunk(t *testing.T) {
 	// Chunks arrive every 20ms against a 60ms idle limit for ~200ms total.
-	_, closePayload := runLimitedStream(t,
+	env, closePayload := runLimitedStream(t,
 		"stream-idle-timeout: 60ms\n",
 		tickingUpstream(20*time.Millisecond, 10))
-	if strings.Contains(closePayload, `"error"`) {
-		t.Fatalf("stream with regular chunks closed with error: %s", closePayload)
-	}
+	requireCleanClose(t, env, closePayload)
 }
 
 func TestExecuteStreamMaxDurationEndsActiveStream(t *testing.T) {
@@ -216,8 +224,6 @@ func TestExecuteStreamSlowDownstreamIsNotUpstreamIdle(t *testing.T) {
 		}
 		return upstream(method, payload)
 	}
-	_, closePayload := runLimitedStream(t, "stream-idle-timeout: 30ms\n", responder)
-	if strings.Contains(closePayload, `"error"`) {
-		t.Fatalf("slow downstream closed the stream with error: %s", closePayload)
-	}
+	env, closePayload := runLimitedStream(t, "stream-idle-timeout: 30ms\n", responder)
+	requireCleanClose(t, env, closePayload)
 }
