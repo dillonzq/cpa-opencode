@@ -214,6 +214,31 @@ func TestStreamLimitsEmptyReadKeepsIdleDeadline(t *testing.T) {
 	}
 }
 
+func TestAbandonCanceledOpenFailsRetryably(t *testing.T) {
+	f := &fakeCaller{}
+	m := NewManager(NewHostBridge(f.call))
+	ctx, cancel := context.WithCancelCause(context.Background())
+	l := startStreamLimits(cancel, config.Config{
+		RequestTimeout:    time.Millisecond,
+		StreamIdleTimeout: time.Hour,
+		MaxStreamDuration: time.Hour,
+	})
+	defer l.stop()
+	if eErr := m.abandonCanceledOpen(ctx, "up-late"); eErr != nil {
+		t.Fatalf("live stream abandoned: %+v", eErr)
+	}
+	<-ctx.Done() // the open timer fires after DoStream returned OK
+	l.opened()   // too late to stop it
+	eErr := m.abandonCanceledOpen(ctx, "up-late")
+	if eErr == nil || eErr.Class != errclass.ClassNetwork || !eErr.Retryable ||
+		!strings.Contains(eErr.Message, errStreamOpenTimeout.Error()) {
+		t.Fatalf("error = %+v, want retryable open timeout", eErr)
+	}
+	if closes := f.callsOf(pluginabi.MethodHostHTTPStreamClose); len(closes) != 1 {
+		t.Fatalf("upstream closes = %d, want 1", len(closes))
+	}
+}
+
 func TestExecuteStreamSlowDownstreamIsNotUpstreamIdle(t *testing.T) {
 	// Each emit takes longer than stream-idle-timeout while the upstream
 	// always has the next chunk ready.

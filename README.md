@@ -120,7 +120,7 @@ The [complete configuration example](config.example.yaml) includes the default c
 | `models-dev.url` | `https://models.dev/api.json` | Metadata source; uses its `opencode` provider |
 | `models-dev.refresh-interval` | `24h` | Metadata refresh interval, at least `1m` |
 | `quota.timeout` | `15s` | Quota lookup timeout, at most `1m` |
-| `request-timeout` | `5m` | Whole non-streaming request, or stream opening until the upstream status arrives; for status 400 or higher it also covers reading the error body |
+| `request-timeout` | `5m` | Whole non-streaming request, or stream opening until the upstream status arrives; for status 400 or higher it also covers reading the error body. Also bounds each scheduled catalog refresh |
 | `stream-idle-timeout` | `5m` | Longest gap between upstream stream chunks; each chunk restarts it |
 | `max-stream-duration` | `1h` | Longest lifetime of one stream, opening included |
 | `max-response-bytes` | `67108864` | Non-streaming inference response limit: 64 MiB |
@@ -255,7 +255,7 @@ go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dylib .
 go build -trimpath -buildmode=c-shared -o dist/cpa-opencode.dll .
 ```
 
-Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.1'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
+Version metadata defaults to `0.0.0-dev`. Inject a version with `-ldflags '-X github.com/dillonzq/cpa-opencode/internal/plugin.pluginVersion=0.4.2'`. Debug diagnostics require a debug build and `CPA_OPENCODE_DEBUG=1`; production builds omit the logger.
 
 ## Testing
 

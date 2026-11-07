@@ -281,6 +281,9 @@ func (m *Manager) executeStream(req executorRequest) ([]byte, error) {
 		// so a late open timer cannot cancel it. An error status keeps the
 		// opening limit while its body is read.
 		limits.opened()
+		if eErr := m.abandonCanceledOpen(ctx, id); eErr != nil {
+			return classEnvelope(eErr), nil
+		}
 	}
 	if st >= 400 {
 		var body []byte
@@ -333,6 +336,20 @@ func (m *Manager) executeStream(req executorRequest) ([]byte, error) {
 		m.pumpStreamContext(ctx, downID, id, res, conv, limits)
 	}()
 	return okEnvelope(struct{}{}), nil
+}
+
+// abandonCanceledOpen fails a stream whose context ended after DoStream
+// returned but before the opening phase ended, as when the open timer fires
+// in that gap. Failing before the OK envelope keeps the error retryable;
+// otherwise the pump would report it only after the stream had opened.
+func (m *Manager) abandonCanceledOpen(ctx context.Context, upstreamID string) *errclass.Error {
+	if ctx.Err() == nil {
+		return nil
+	}
+	if upstreamID != "" {
+		_ = m.bridge.StreamClose(upstreamID)
+	}
+	return errclass.FromNetwork(context.Cause(ctx))
 }
 
 var (

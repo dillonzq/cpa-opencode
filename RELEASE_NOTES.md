@@ -10,6 +10,7 @@
 
 - Long but active streams, such as large outputs or long reasoning, are no longer cut off after `request-timeout` (default `5m`) while the upstream is still sending data.
 - A stream ended by a limit now reports which one it hit: `stream did not open within request-timeout`, `stream exceeded stream-idle-timeout`, or `stream exceeded max-stream-duration`. Client or shutdown cancellation reports `stream canceled`. An upstream error status whose body read is cut off by a limit keeps its status classification, and its message names the limit.
+- A stream whose opening limit expires just as the upstream opens now fails as a retryable network error, instead of opening and then closing immediately.
 
 ## Compatibility and verification
 
