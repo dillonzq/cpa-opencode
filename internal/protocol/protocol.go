@@ -111,8 +111,14 @@ func (s *State) start(upstream, client apix.Protocol) *errclass.Error {
 		}
 	}
 	opts := apix.ExchangeOptions{LossPolicy: s.LossPolicy}
-	if upstream == openai.Responses && s.NormalizeTools {
+	switch {
+	case upstream == openai.Responses && s.NormalizeTools:
 		opts.Ext = openai.ResponsesOptions{NormalizeTools: true}
+	case upstream == openai.ChatCompletions:
+		// Chat streams report usage only on request. Ask for it, as CPA's
+		// OpenAI-compatible executor does, so converted clients and CPA
+		// accounting receive token counts.
+		opts.Ext = openai.ChatCompletionsOptions{StreamUsage: true}
 	}
 	ex, err := newExchange(upstream, client, output, opts)
 	if err != nil {
