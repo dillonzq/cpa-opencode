@@ -92,7 +92,7 @@ func (p ProtocolOverride) IsEnabled() bool {
 	return p.Enabled == nil || *p.Enabled
 }
 
-// ModelPlaceholder marks where a model-dependent endpoint path (Gemini)
+// ModelPlaceholder marks where a model-dependent endpoint path (Google)
 // carries the upstream model ID.
 const ModelPlaceholder = "{model}"
 

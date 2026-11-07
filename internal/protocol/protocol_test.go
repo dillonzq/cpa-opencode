@@ -320,3 +320,60 @@ func TestEmptyStreamErrorRemainsFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestChatUpstreamStreamsRequestUsage(t *testing.T) {
+	for _, tc := range []struct {
+		format, body string
+		stream, want bool
+	}{
+		{"claude", `{"model":"c","max_tokens":8,"stream":true,"messages":[{"role":"user","content":"hi"}]}`, true, true},
+		{"openai-response", `{"model":"c","stream":true,"input":"hi"}`, true, true},
+		{"openai", `{"model":"c","stream":true,"messages":[{"role":"user","content":"hi"}]}`, true, true},
+		{"gemini", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`, true, true},
+		{"claude", `{"model":"c","max_tokens":8,"messages":[{"role":"user","content":"hi"}]}`, false, false},
+		{"gemini", `{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`, false, false},
+	} {
+		out, err := ConvertRequest(catalog.RouteChatCompletions, "up", tc.format, []byte(tc.body), &State{Stream: tc.stream})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.format, err)
+		}
+		var req struct {
+			StreamOptions *struct {
+				IncludeUsage bool `json:"include_usage"`
+			} `json:"stream_options"`
+		}
+		if err := json.Unmarshal(out, &req); err != nil {
+			t.Fatalf("%s: %s", tc.format, out)
+		}
+		if got := req.StreamOptions != nil && req.StreamOptions.IncludeUsage; got != tc.want {
+			t.Fatalf("%s stream=%v: include_usage=%v body=%s", tc.format, tc.stream, got, out)
+		}
+	}
+}
+
+func TestChatUsageChunkReachesMessagesClient(t *testing.T) {
+	state := &State{Stream: true}
+	if _, err := ConvertRequest(catalog.RouteChatCompletions, "up", "claude", []byte(`{"model":"c","max_tokens":8,"stream":true,"messages":[{"role":"user","content":"hi"}]}`), state); err != nil {
+		t.Fatal(err)
+	}
+	conv, err := NewStreamConverter(catalog.RouteChatCompletions, "claude", state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upstream := "data: {\"id\":\"r\",\"model\":\"m\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"hi\"},\"finish_reason\":null}]}\n\n" +
+		"data: {\"id\":\"r\",\"model\":\"m\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
+		"data: {\"id\":\"r\",\"model\":\"m\",\"choices\":[],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3,\"total_tokens\":10}}\n\n" +
+		"data: [DONE]\n\n"
+	events, _, err := conv.Feed([]byte(upstream))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tail, err := conv.Finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := string(bytes.Join(append(events, tail...), nil))
+	if !strings.Contains(all, `"output_tokens":3`) || !strings.Contains(all, `"input_tokens":7`) {
+		t.Fatalf("usage missing from Messages stream:\n%s", all)
+	}
+}

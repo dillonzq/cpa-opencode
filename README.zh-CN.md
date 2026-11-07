@@ -21,7 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555" alt="License: MIT"></a>
   <a href="https://help.router-for.me/plugin/development"><img src="https://img.shields.io/badge/CLIProxyAPI-8.0.0%2B-555" alt="CLIProxyAPI 8.0.0+"></a>
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26.10%2B-555" alt="源码构建需要 Go 1.26.10+"></a>
-  <a href="https://github.com/dillonzq/apix/tree/v0.2.0"><img src="https://img.shields.io/badge/apix-0.2.0-555" alt="apix 0.2.0"></a>
+  <a href="https://github.com/dillonzq/apix/tree/v0.4.0"><img src="https://img.shields.io/badge/apix-0.4.0-555" alt="apix 0.4.0"></a>
 </p>
 
 ---
@@ -35,8 +35,8 @@
 ## 功能特性
 
 - **统一模型目录**：通过 CPA 的 `/v1/models` 发布 `opencode/<model-id>`，客户端无需分别配置各个模型家族。
-- **四种客户端协议**：支持 Chat Completions、Messages、Responses、Gemini 的普通和流式请求；模型支持时优先使用客户端原生协议。
-- **工具与推理内容**：使用 [apix v0.2.0](https://github.com/dillonzq/apix/tree/v0.2.0) 转换可表示的媒体、函数工具、工具结果和可读推理；原生请求保留协议专有字段。
+- **四种客户端协议**：支持 Chat Completions、Messages、Responses、Google GenerateContent 的普通和流式请求；模型支持时优先使用客户端原生协议。
+- **工具与推理内容**：使用 [apix v0.4.0](https://github.com/dillonzq/apix/tree/v0.4.0) 转换可表示的媒体、函数工具、工具结果和可读推理；原生请求保留协议专有字段。
 - **动态模型发现**：公开目录刷新、models.dev 元数据补全、显式模型声明及逐模型协议和端点覆盖。
 - **多凭证调度**：支持独立名称和稳定凭证 ID，由 CPA 在各协议间共享轮换与冷却状态。
 - **原生 PAYG quota**：通过 CPA v8 管理接口展示所选凭证的成员预算、余额及可用额度。
@@ -132,7 +132,7 @@ api-keys:
 
 模型家族的默认协议依据 OpenCode [端点表](https://opencode.ai/v2/docs/console/models/)：
 
-| 模型家族 | Chat Completions | Messages | Responses | Gemini |
+| 模型家族 | Chat Completions | Messages | Responses | Google |
 | --- | :---: | :---: | :---: | :---: |
 | `gpt-*`、`grok-*`、`muse-spark-*`、`muse-wonder-*` | — | — | ✓ | — |
 | `claude-*`、除 `qwen3.8-max*` 外的 `qwen*` | — | ✓ | — | — |
@@ -147,19 +147,19 @@ DeepSeek 同时提供 Messages 和 Responses。未知家族需通过 `models[].p
 
 | 客户端格式 | 选择顺序 |
 | --- | --- |
-| Chat Completions | Chat Completions → Responses → Messages → Gemini |
-| Responses | Responses → Chat Completions → Messages → Gemini |
-| Messages | Messages → Responses → Chat Completions → Gemini |
-| Gemini | Gemini → Responses → Chat Completions → Messages |
+| Chat Completions | Chat Completions → Responses → Messages → Google |
+| Responses | Responses → Chat Completions → Messages → Google |
+| Messages | Messages → Responses → Chat Completions → Google |
+| Google | Google → Responses → Chat Completions → Messages |
 
 | 上游协议 | `base-url` 后追加路径 |
 | --- | --- |
 | Chat Completions | `/openai/v1/chat/completions` |
 | Messages | `/anthropic/v1/messages` |
 | Responses | `/openai/v1/responses` |
-| Gemini | `/google/v1beta/models/{model}:generateContent` |
+| Google | `/google/v1beta/models/{model}:generateContent` |
 
-Gemini 流式改用 `:streamGenerateContent?alt=sse`。所有协议均采用 `Authorization: Bearer <key>` 认证。例如，`opencode/deepseek-v4-pro` 收到 Claude 格式请求时直接使用 Messages，收到 Responses 格式请求时直接使用 Responses。
+Google 流式改用 `:streamGenerateContent?alt=sse`。所有协议均采用 `Authorization: Bearer <key>` 认证。例如，`opencode/deepseek-v4-pro` 收到 Claude 格式请求时直接使用 Messages，收到 Responses 格式请求时直接使用 Responses。
 
 ### 模型与协议覆盖
 
@@ -185,7 +185,7 @@ models:
 
 `models[].alias` 沿用 CPA 的 `name`/`alias` 约定，用别名替换对外发布 ID 中的上游 `name`；前缀仍会叠加，请求上游时仍发送 `name`。上例对外发布为 `opencode/my-model`。别名必须唯一；若别名与其他模型的 ID 冲突，后出现的模型会被排除，原因记录在诊断信息中。可借此与其他提供方发布同名模型，让 CPA 合为同一个模型池，例如 `name: minimax-m3` 配 `alias: MiniMax-M3`。
 
-`models[].protocols` 按模型添加、关闭协议并覆盖路径；顶层 `protocols` 仅设置全局路径。列出的协议默认开启，除非 `enabled: false`。Gemini 端点覆盖必须包含 `{model}`。路径优先级为模型覆盖、全局覆盖、内置默认值。
+`models[].protocols` 按模型添加、关闭协议并覆盖路径；顶层 `protocols` 仅设置全局路径。列出的协议默认开启，除非 `enabled: false`。Google 端点覆盖（键名 `gemini`）必须包含 `{model}`。路径优先级为模型覆盖、全局覆盖、内置默认值。
 
 ## 请求行为
 

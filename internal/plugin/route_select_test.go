@@ -231,7 +231,7 @@ func TestExecuteGeminiClient(t *testing.T) {
 			t.Fatal("no Gemini events emitted")
 		}
 		for _, event := range events {
-			// CPA frames Gemini SSE itself: each event is one JSON object.
+			// CPA frames Google SSE itself: each event is one JSON object.
 			var chunk map[string]any
 			if err := json.Unmarshal([]byte(event), &chunk); err != nil || chunk["candidates"] == nil {
 				t.Fatalf("event %q is not a bare Gemini chunk: %v", event, err)
