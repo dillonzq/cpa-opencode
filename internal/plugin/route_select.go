@@ -4,11 +4,11 @@ import "github.com/dillonzq/cpa-opencode/internal/catalog"
 
 // routePreference orders upstream protocols for each host input format: the
 // format's own protocol first (no conversion), then the others by increasing
-// semantic loss of the request conversion (apix docs/protocols/llm.md and
-// gemini.md). Responses keeps reasoning_text, OpenAI file IDs, and hosted
-// search shared with Messages; Messages has no audio, video, or file IDs;
-// Chat cannot carry URI-only documents; Gemini differs most in signatures
-// and thinking, so it comes last for every other client.
+// semantic loss of the request conversion (apix docs/protocols/llm.md).
+// Responses keeps reasoning_text, OpenAI file IDs, and hosted search shared
+// with Messages; Messages has no audio, video, or file IDs; Chat cannot carry
+// URI-only documents; Gemini differs most in signatures and thinking, so it
+// comes last for every other client.
 var routePreference = map[string][]catalog.Route{
 	"openai":          {catalog.RouteChatCompletions, catalog.RouteResponses, catalog.RouteMessages, catalog.RouteGemini},
 	"openai-response": {catalog.RouteResponses, catalog.RouteChatCompletions, catalog.RouteMessages, catalog.RouteGemini},

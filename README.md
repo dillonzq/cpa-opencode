@@ -21,7 +21,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-555" alt="License: MIT"></a>
   <a href="https://help.router-for.me/plugin/development"><img src="https://img.shields.io/badge/CLIProxyAPI-8.0.0%2B-555" alt="CLIProxyAPI 8.0.0+"></a>
   <a href="go.mod"><img src="https://img.shields.io/badge/Go-1.26.10%2B-555" alt="Go 1.26.10+ for source builds"></a>
-  <a href="https://github.com/dillonzq/apix/tree/v0.2.0"><img src="https://img.shields.io/badge/apix-0.2.0-555" alt="apix 0.2.0"></a>
+  <a href="https://github.com/dillonzq/apix/tree/v0.4.0"><img src="https://img.shields.io/badge/apix-0.4.0-555" alt="apix 0.4.0"></a>
 </p>
 
 ---
@@ -36,7 +36,7 @@ The plugin ID is `cpa-opencode`. The provider ID, credential type and default mo
 
 - **One model namespace.** Discovered models appear as `opencode/<model-id>` in CPA's `/v1/models`.
 - **Four client protocols.** Chat Completions, Messages, Responses and Gemini work with ordinary and streaming requests. The client's own protocol is preferred when the model serves it.
-- **Tools and reasoning.** [apix v0.2.0](https://github.com/dillonzq/apix/tree/v0.2.0) converts supported media, function tools, tool results and readable reasoning; native payloads retain their API-specific fields.
+- **Tools and reasoning.** [apix v0.4.0](https://github.com/dillonzq/apix/tree/v0.4.0) converts supported media, function tools, tool results and readable reasoning; native payloads retain their API-specific fields.
 - **Live model catalog.** Public discovery, optional models.dev metadata, explicit model declarations and per-model protocol/endpoint overrides.
 - **Multiple named credentials.** Stable auth identities and selected-key execution; CPA shares rotation and cooldown state across protocols.
 - **Native PAYG quotas.** Per-credential member budgets, balance and available-credit summaries through CPA v8 management endpoints.
