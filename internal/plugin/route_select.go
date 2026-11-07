@@ -7,7 +7,7 @@ import "github.com/dillonzq/cpa-opencode/internal/catalog"
 // semantic loss of the request conversion (apix docs/protocols/llm.md).
 // Responses keeps reasoning_text, OpenAI file IDs, and hosted search shared
 // with Messages; Messages has no audio, video, or file IDs; Chat cannot carry
-// URI-only documents; Gemini differs most in signatures and thinking, so it
+// URI-only documents; Google differs most in signatures and thinking, so it
 // comes last for every other client.
 var routePreference = map[string][]catalog.Route{
 	"openai":          {catalog.RouteChatCompletions, catalog.RouteResponses, catalog.RouteMessages, catalog.RouteGemini},

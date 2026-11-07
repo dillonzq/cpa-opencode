@@ -35,7 +35,7 @@ The plugin ID is `cpa-opencode`. The provider ID, credential type and default mo
 ## Features
 
 - **One model namespace.** Discovered models appear as `opencode/<model-id>` in CPA's `/v1/models`.
-- **Four client protocols.** Chat Completions, Messages, Responses and Gemini work with ordinary and streaming requests. The client's own protocol is preferred when the model serves it.
+- **Four client protocols.** Chat Completions, Messages, Responses and Google GenerateContent work with ordinary and streaming requests. The client's own protocol is preferred when the model serves it.
 - **Tools and reasoning.** [apix v0.4.0](https://github.com/dillonzq/apix/tree/v0.4.0) converts supported media, function tools, tool results and readable reasoning; native payloads retain their API-specific fields.
 - **Live model catalog.** Public discovery, optional models.dev metadata, explicit model declarations and per-model protocol/endpoint overrides.
 - **Multiple named credentials.** Stable auth identities and selected-key execution; CPA shares rotation and cooldown state across protocols.
@@ -132,7 +132,7 @@ Endpoint paths append to the configured base without removing version suffixes. 
 
 The default model-family routes follow OpenCode's [endpoint table](https://opencode.ai/v2/docs/console/models/):
 
-| Model family | Chat Completions | Messages | Responses | Gemini |
+| Model family | Chat Completions | Messages | Responses | Google |
 | --- | :---: | :---: | :---: | :---: |
 | `gpt-*`, `grok-*`, `muse-spark-*`, `muse-wonder-*` | — | — | ✓ | — |
 | `claude-*`, `qwen*` except `qwen3.8-max*` | — | ✓ | — | — |
@@ -147,19 +147,19 @@ For each request, the plugin uses the first available protocol in the client's o
 
 | Client format | Order |
 | --- | --- |
-| Chat Completions | Chat Completions → Responses → Messages → Gemini |
-| Responses | Responses → Chat Completions → Messages → Gemini |
-| Messages | Messages → Responses → Chat Completions → Gemini |
-| Gemini | Gemini → Responses → Chat Completions → Messages |
+| Chat Completions | Chat Completions → Responses → Messages → Google |
+| Responses | Responses → Chat Completions → Messages → Google |
+| Messages | Messages → Responses → Chat Completions → Google |
+| Google | Google → Responses → Chat Completions → Messages |
 
 | Upstream protocol | Path below `base-url` |
 | --- | --- |
 | Chat Completions | `/openai/v1/chat/completions` |
 | Messages | `/anthropic/v1/messages` |
 | Responses | `/openai/v1/responses` |
-| Gemini | `/google/v1beta/models/{model}:generateContent` |
+| Google | `/google/v1beta/models/{model}:generateContent` |
 
-Gemini streams use `:streamGenerateContent?alt=sse`. Every route authenticates with `Authorization: Bearer <key>`. For example, a Claude-format request to `opencode/deepseek-v4-pro` uses Messages directly; a Responses request to the same model uses Responses directly.
+Google streams use `:streamGenerateContent?alt=sse`. Every route authenticates with `Authorization: Bearer <key>`. For example, a Claude-format request to `opencode/deepseek-v4-pro` uses Messages directly; a Responses request to the same model uses Responses directly.
 
 ### Model and protocol overrides
 
@@ -185,7 +185,7 @@ models:
 
 `models[].alias` follows CPA's `name`/`alias` convention: the alias replaces the upstream `name` in the published model ID, the prefix still applies, and requests still send `name` upstream. The example above publishes `opencode/my-model`. Aliases must be unique; when an alias collides with another model's ID, the later model is excluded and the reason appears in diagnostics. Use it to publish the same name as another provider so CPA pools both, for example `name: minimax-m3` with `alias: MiniMax-M3`.
 
-`models[].protocols` adds or disables routes and overrides model-specific paths. Top-level `protocols` only overrides paths globally. A listed protocol is enabled unless `enabled: false`. Gemini endpoint overrides must include `{model}`. Model endpoint overrides take precedence over global overrides and defaults.
+`models[].protocols` adds or disables routes and overrides model-specific paths. Top-level `protocols` only overrides paths globally. A listed protocol is enabled unless `enabled: false`. Google endpoint overrides (key `gemini`) must include `{model}`. Model endpoint overrides take precedence over global overrides and defaults.
 
 ## Request behavior
 

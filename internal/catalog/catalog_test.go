@@ -914,7 +914,7 @@ func TestJoinUpstreamURL(t *testing.T) {
 	}
 }
 
-// TestTargetURL pins per-protocol URLs: Gemini substitutes the escaped model
+// TestTargetURL pins per-protocol URLs: Google substitutes the escaped model
 // and appends the operation for the streaming mode.
 func TestTargetURL(t *testing.T) {
 	const base = "https://opencode.ai/inference"

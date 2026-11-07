@@ -180,7 +180,7 @@ func appendSessionContent(out *strings.Builder, raw json.RawMessage, format stri
 	}
 }
 
-// appendGeminiSessionParts hashes Gemini parts as CPA's former Chat translation
+// appendGeminiSessionParts hashes GenerateContent parts as CPA's former Chat translation
 // did: text verbatim, inline and file images as their data URL or URI. Thought
 // parts are omitted; other parts contribute canonical JSON.
 func appendGeminiSessionParts(out *strings.Builder, raw json.RawMessage) {

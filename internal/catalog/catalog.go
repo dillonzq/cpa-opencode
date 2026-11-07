@@ -48,7 +48,7 @@ const (
 var protocolOrder = []Route{RouteChatCompletions, RouteMessages, RouteResponses, RouteGemini}
 
 // routeEndpoints maps each route to its default endpoint path below base-url.
-// The Gemini path names the model resource; Target.URL appends the operation.
+// The Google path names the model resource; Target.URL appends the operation.
 var routeEndpoints = map[Route]string{
 	RouteChatCompletions: "/openai/v1/chat/completions",
 	RouteMessages:        "/anthropic/v1/messages",
@@ -69,7 +69,7 @@ type Target struct {
 }
 
 // URL joins base-url and the endpoint path, substituting the upstream model.
-// Gemini carries the operation in the path: streaming uses
+// Google carries the operation in the path: streaming uses
 // streamGenerateContent with SSE framing.
 func (t Target) URL(baseURL, model string, stream bool) string {
 	path := strings.ReplaceAll(t.EndpointPath, config.ModelPlaceholder, url.PathEscape(model))

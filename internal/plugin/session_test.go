@@ -112,8 +112,8 @@ func TestDeriveOpenCodeSessionIDCrossFormatParityAndErrors(t *testing.T) {
 	}
 }
 
-// Gemini clients used to reach the plugin through CPA's Chat translation;
-// native Gemini hashing keeps those sessions on the same ID.
+// Google clients used to reach the plugin through CPA's Chat translation;
+// native Google hashing keeps those sessions on the same ID.
 func TestDeriveGeminiSessionMatchesTranslatedChat(t *testing.T) {
 	cases := []struct{ name, gemini, chat string }{
 		{
