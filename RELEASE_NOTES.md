@@ -5,6 +5,7 @@
 - `request-timeout` no longer limits an open stream. It covers a whole non-streaming request, and for a stream only the opening, until the upstream status arrives; for status 400 or higher it also covers reading the error body.
 - New `stream-idle-timeout` (default `5m`) ends a stream that receives no chunk for that long. Each chunk restarts it, and time spent delivering a chunk downstream does not count.
 - New `max-stream-duration` (default `1h`) caps one stream's lifetime from the start of opening. Both new settings must be positive durations.
+- Streamed requests to Chat Completions upstreams now set `stream_options.include_usage`, so clients converted from Messages, Responses or Google GenerateContent, and CPA accounting, receive token counts. Native Chat Completions streams also end with the standard usage chunk whose `choices` is empty, even when the client did not ask for it.
 
 ## Fixes
 
@@ -12,10 +13,16 @@
 - A stream ended by a limit now reports which one it hit: `stream did not open within request-timeout`, `stream exceeded stream-idle-timeout`, or `stream exceeded max-stream-duration`. Client or shutdown cancellation reports `stream canceled`. An upstream error status whose body read is cut off by a limit keeps its status classification, and its message names the limit.
 - A stream whose opening limit expires just as the upstream opens now fails as a retryable network error, instead of opening and then closing immediately.
 
+## Dependencies and platforms
+
+- Upgrade apix from `v0.2.0` to `v0.4.0`. A GenerateContent function call without an `id` converted to another protocol now gets `call_google_N` instead of `call_gemini_N`, and the refusal text for a blocked prompt reads `Request blocked by Google.` A single upstream SSE event larger than 64 MiB now fails the stream.
+- Add Windows arm64 and FreeBSD amd64 packages, both cross-compiled on Linux. Release packages now include seven platform ZIPs and one combined `checksums.txt`.
+- Documentation names the vendor Google where it named Gemini. The `gemini-*` model family, the `gemini` protocol key and CPA's `gemini` format ID are unchanged.
+
 ## Compatibility and verification
 
-- Backward compatible with `v0.4.1`. A `request-timeout` raised only to keep long streams alive can return to its default; raise `max-stream-duration` instead if streams may last over an hour. A stream silent for over 5 minutes is now ended by `stream-idle-timeout`, as it previously was by `request-timeout` at the same default.
-- Production tests, race checks and vet pass against local mock upstreams.
+- Backward compatible with `v0.4.1`. A `request-timeout` raised only to keep long streams alive can return to its default; raise `max-stream-duration` instead if streams may last over an hour. A stream silent for over 5 minutes is now ended by `stream-idle-timeout`, as it previously was by `request-timeout` at the same default. Requires CLIProxyAPI `v8.0.0+` with native plugins enabled.
+- Production tests, native host integration tests, race checks and vet pass against local mock upstreams. Live paid inference and account billing access require separate verification.
 
 # v0.4.1
 
