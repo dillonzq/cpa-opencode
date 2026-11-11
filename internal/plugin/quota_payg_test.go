@@ -109,6 +109,7 @@ func TestPAYGQuotaPartialAndPermissionResults(t *testing.T) {
 				return hostOK(pluginapi.HTTPResponse{StatusCode: status, Body: []byte(body)}), nil
 			}}
 			m := NewManager(NewHostBridge(f.call))
+			m.cfg.APIKeys = []config.APIKey{{Value: "secret"}}
 			got, err := m.FetchQuota(context.Background(), pluginapi.QuotaFetchRequest{Provider: ProviderID, Attributes: map[string]string{"api_key": "secret"}})
 			if (err != nil) != tc.wantError {
 				t.Fatalf("unexpected quota result: %+v %v", got, err)
@@ -213,6 +214,7 @@ func TestPAYGQuotaTimeoutCancelsBothOperations(t *testing.T) {
 	}}
 	m := NewManager(NewHostBridge(f.call))
 	m.cfg.QuotaTimeout = 20 * time.Millisecond
+	m.cfg.APIKeys = []config.APIKey{{Value: "key"}}
 	_, err := m.FetchQuota(context.Background(), pluginapi.QuotaFetchRequest{Provider: ProviderID, Attributes: map[string]string{"api_key": "key"}})
 	if err == nil {
 		t.Fatal("timeout succeeded")

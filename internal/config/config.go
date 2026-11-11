@@ -245,15 +245,14 @@ func PublicID(c Config, upstreamID string) string {
 }
 
 // HasAPIKey prevents persisted records for removed keys from executing.
-// A zero configuration is useful for direct SDK callers and unit fixtures;
-// registered plugin configurations always require credentials.
+// An empty key list is the idle state: no credential is configured.
 func (c Config) HasAPIKey(key string) bool {
 	for _, entry := range c.APIKeys {
 		if entry.Value == key {
 			return true
 		}
 	}
-	return len(c.APIKeys) == 0
+	return false
 }
 
 func (c Config) WorkspaceID(key, stored string) string {
@@ -309,9 +308,6 @@ func (c Config) validate() error {
 	}
 	if err := validateURL("catalog-url", c.CatalogURL, c.AllowHTTP); err != nil {
 		return err
-	}
-	if len(c.APIKeys) == 0 {
-		return fmt.Errorf("api-keys: at least one key is required")
 	}
 	for i, k := range c.APIKeys {
 		if k.Value == "" {

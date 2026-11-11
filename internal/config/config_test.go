@@ -331,7 +331,6 @@ func TestLoadRejections(t *testing.T) {
 		{"invalid yaml syntax", "[unclosed", "decode config"},
 		{"unknown anchor has no line info", "request-timeout: *nope\n", "decode config: invalid YAML structure"},
 		{"bare-scalar api key never leaks", "api-keys:\n  - sk-live-secret-123\n", "decode config: invalid YAML structure"},
-		{"keyless config rejected", "", "api-keys: at least one key is required"},
 		{"old api-key field rejected", "api-keys:\n  - api-key: sk-legacy-secret\n", "decode config: invalid YAML structure"},
 		{"old api-key alongside value rejected", "api-keys:\n  - value: sk-current\n    api-key: sk-legacy-secret\n", "decode config: invalid YAML structure"},
 		{"request-timeout zero rejected", "request-timeout: 0s\n" + withKey, "request-timeout: must be positive"},
@@ -499,5 +498,22 @@ func TestValidateURLRejectsQueryFragmentUserinfo(t *testing.T) {
 				t.Errorf("error echoes credentials: %q", err.Error())
 			}
 		})
+	}
+}
+
+// An empty or omitted key list is the idle state: it loads, and no key is
+// treated as configured.
+func TestLoadAcceptsKeylessConfig(t *testing.T) {
+	for _, doc := range []string{"", "api-keys: []", "api-keys: null", "api-keys: []\nmodels: [{name: manual}]"} {
+		cfg, err := Load([]byte(doc))
+		if err != nil {
+			t.Fatalf("keyless config %q rejected: %v", doc, err)
+		}
+		if len(cfg.APIKeys) != 0 || cfg.HasAPIKey("") || cfg.HasAPIKey("any") {
+			t.Fatalf("keyless config %q accepts a key", doc)
+		}
+	}
+	if _, err := Load([]byte("api-keys: [{value: ''}]")); err == nil {
+		t.Fatal("empty key value accepted")
 	}
 }
