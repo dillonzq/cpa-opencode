@@ -90,6 +90,60 @@ func (m *Manager) discoverCleanupFiles(ctx context.Context, entries []pluginapi.
 	return entries, nil
 }
 
+// reserveUnlistedAuth adds the filenames and key-derived IDs of JSON files in
+// the remembered auth directories that the host listing omitted. Unrelated or
+// invalid files still reserve their names; an unreadable file fails, because
+// its unknown identity could otherwise be duplicated or overwritten.
+func (m *Manager) reserveUnlistedAuth(ctx context.Context, listed map[string]bool, existing map[string]struct{}) error {
+	m.mu.RLock()
+	dirs := append([]string(nil), m.authDirs...)
+	m.mu.RUnlock()
+	for _, dir := range dirs {
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			return fmt.Errorf("open credential directory failed")
+		}
+		err = fs.WalkDir(root.FS(), ".", func(relative string, file fs.DirEntry, walkErr error) error {
+			if ctx.Err() != nil {
+				return fmt.Errorf("credential discovery canceled")
+			}
+			if walkErr != nil {
+				return fmt.Errorf("scan credential directory failed")
+			}
+			if file.IsDir() || !strings.EqualFold(filepath.Ext(file.Name()), ".json") {
+				return nil
+			}
+			existing[file.Name()] = struct{}{}
+			if !file.Type().IsRegular() || listed[filepath.Join(dir, filepath.FromSlash(relative))] {
+				return nil
+			}
+			raw, _, err := readCleanupRecord(root, filepath.FromSlash(relative))
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("cannot read existing auth record")
+			}
+			var record struct {
+				Type     string `json:"type"`
+				Provider string `json:"provider"`
+				APIKey   string `json:"api_key"`
+			}
+			if json.Unmarshal(raw, &record) == nil && (record.Type == ProviderID || record.Provider == ProviderID) {
+				if key := strings.TrimSpace(record.APIKey); key != "" {
+					existing[credentialID(key)] = struct{}{}
+				}
+			}
+			return nil
+		})
+		_ = root.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Cleanup uses physical records, not host IDs (which can be filenames). Only
 // records with our type and the exact ID we generate from their key are owned.
 // No keys, host error bodies or file contents are included in cleanup errors.

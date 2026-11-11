@@ -420,7 +420,12 @@ func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config)
 	}
 	m.rememberAuthDirs(entries)
 	existing := make(map[string]struct{}, len(entries)*2)
+	listed := make(map[string]bool, len(entries))
 	for _, entry := range entries {
+		// A listing without provider metadata still needs the disk check below.
+		if filepath.IsAbs(entry.Path) && (entry.Provider != "" || entry.Type != "") {
+			listed[filepath.Clean(entry.Path)] = true
+		}
 		// Before the auth manager is ready, v8 lists disk files without IDs.
 		// Recover identity from those host-reported paths to avoid duplicates
 		// when a credential has a readable filename.
@@ -447,6 +452,11 @@ func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config)
 		if id := strings.TrimSpace(entry.ID); id != "" {
 			existing[id] = struct{}{}
 		}
+	}
+	// The listing can omit files, or be temporarily empty while CPA reloads.
+	// AuthSave overwrites, so reserve every name and key already on disk.
+	if err := m.reserveUnlistedAuth(ctx, listed, existing); err != nil {
+		return err
 	}
 	for i, key := range cfg.APIKeys {
 		digest := sha256.Sum256([]byte(key.Value))

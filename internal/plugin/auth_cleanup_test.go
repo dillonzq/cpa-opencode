@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -384,6 +385,54 @@ func TestCleanupDiscoversUnlistedAndNestedFiles(t *testing.T) {
 					t.Fatal("foreign file changed")
 				}
 			})
+		}
+	}
+}
+
+// A temporarily empty listing must not make materialization overwrite files
+// it has seen before: existing keys are found on disk and names stay unique.
+func TestMaterializeReservesUnlistedFilesWhenListingIsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	keptA := writeCleanupAuth(t, dir, "A.json", "key-a")
+	foreign := []byte(`{"type":"codex","api_key":"foreign"}`)
+	if err := os.WriteFile(filepath.Join(dir, "C.json"), foreign, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m, f := cleanupFixture(t, dir)
+	var hide atomic.Bool
+	listing := f.responder
+	f.responder = func(method string, data []byte) ([]byte, error) {
+		if method == pluginabi.MethodHostAuthList && hide.Load() {
+			return hostOK(hostAuthListResponse{Files: []pluginapi.HostAuthFileEntry{}}), nil
+		}
+		return listing(method, data)
+	}
+	apply := func(method, settings string) {
+		t.Helper()
+		raw, _ := m.HandleCall(method, mustJSON(lifecycleRequest{ConfigYAML: []byte(settings)}))
+		if !decodeEnv(t, raw).OK {
+			t.Fatalf("lifecycle failed: %s", raw)
+		}
+	}
+	apply(pluginabi.MethodPluginRegister, "api-keys: [{name: A, value: key-a}]\nmodels-dev: {enabled: false}")
+	// Written after registration, whose cleanup would remove an unconfigured key.
+	if err := os.Mkdir(filepath.Join(dir, "nested"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	keptB := writeCleanupAuth(t, filepath.Join(dir, "nested"), "Old.JSON", "key-b")
+	hide.Store(true)
+	apply(pluginabi.MethodPluginReconfigure, "api-keys: [{name: A, value: key-a}, {name: B, value: key-b}, {name: C, value: key-c}]\nmodels-dev: {enabled: false}")
+	saves := f.callsOf(pluginabi.MethodHostAuthSave)
+	if len(saves) != 1 {
+		t.Fatalf("auth saves = %d, want only the new key", len(saves))
+	}
+	var req pluginapi.HostAuthSaveRequest
+	if err := json.Unmarshal(saves[0].payload, &req); err != nil || req.Name != "C-2.json" {
+		t.Fatalf("new credential name = %q, want C-2.json", req.Name)
+	}
+	for path, want := range map[string][]byte{"A.json": keptA, filepath.Join("nested", "Old.JSON"): keptB, "C.json": foreign} {
+		if got, err := os.ReadFile(filepath.Join(dir, path)); err != nil || !bytes.Equal(got, want) {
+			t.Fatalf("existing file %s was overwritten", path)
 		}
 	}
 }
