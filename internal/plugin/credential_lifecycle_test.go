@@ -9,6 +9,8 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
+
+	"github.com/dillonzq/cpa-opencode/internal/config"
 )
 
 func TestRemovedCredentialCannotExecuteOrPublishModels(t *testing.T) {
@@ -50,7 +52,7 @@ func TestRemovedCredentialCannotExecuteOrPublishModels(t *testing.T) {
 
 func TestAuthParsingAndRefreshPreserveDisabledProxyMetadata(t *testing.T) {
 	raw := []byte(`{"type":"opencode","id":"stable","api_key":"key","workspace_id":"org","disabled":true,"proxy_url":"socks5://proxy.test:1080","prefix":"group","label":"Work","custom":{"retained":true}}`)
-	p := authProvider{}
+	p := authProvider{cfg: config.Config{APIKeys: []config.APIKey{{Value: "key"}}}}
 	parsed, err := p.ParseAuth(context.Background(), pluginapi.AuthParseRequest{Provider: ProviderID, FileName: "Work.json", RawJSON: raw})
 	if err != nil || !parsed.Auth.Disabled || parsed.Auth.ProxyURL != "socks5://proxy.test:1080" || parsed.Auth.Prefix != "group" || parsed.Auth.Metadata["api_key"] != nil {
 		t.Fatalf("auth state lost: %+v %v", parsed.Auth, err)

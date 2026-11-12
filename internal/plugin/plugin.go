@@ -59,9 +59,10 @@ type Manager struct {
 	workCtx    context.Context
 	cancelWork context.CancelFunc
 
-	mu  sync.RWMutex
-	cfg config.Config
-	mgr *catalog.Manager
+	mu       sync.RWMutex
+	cfg      config.Config
+	authDirs []string // last host-reported auth directories; guarded by mu
+	mgr      *catalog.Manager
 	// stop/done manage the one background refresh goroutine; both nil
 	// when no loop is running.
 	stop chan struct{}
@@ -333,10 +334,15 @@ func (m *Manager) handleLifecycle(request []byte) ([]byte, error) {
 	m.lifeMu.Lock()
 	defer m.lifeMu.Unlock()
 	debugTrace("lifecycle config_loaded key_count=%d prefix_enabled=%t prefix=%s", len(cfg.APIKeys), cfg.ModelPrefix.Enabled, cfg.ModelPrefix.Value)
+	// An empty key list is the idle state: no credential writes, no upstream
+	// requests and no published models, while cleanup below still runs.
+	configured := len(cfg.APIKeys) > 0
 	ctx, cancel := context.WithTimeout(m.workContext(), registerRefreshTimeout)
 	defer cancel()
-	if err := m.materializeAuthRecords(ctx, cfg); err != nil {
-		return ErrEnvelope("auth_materialization_failed", err.Error()), nil
+	if configured {
+		if err := m.materializeAuthRecords(ctx, cfg); err != nil {
+			return ErrEnvelope("auth_materialization_failed", err.Error()), nil
+		}
 	}
 	// A nil *HostBridge must not enter the interface as a typed nil, or
 	// catalog's nil-client guard never fires and Refresh panics inside Do.
@@ -349,7 +355,10 @@ func (m *Manager) handleLifecycle(request []byte) ([]byte, error) {
 	previous := m.mgr
 	m.mu.RUnlock()
 	mgr.SeedFallbackFrom(previous)
-	refreshErr := refreshOnce(m.workContext(), mgr, m.bridge, registerRefreshTimeout, cfg)
+	var refreshErr error
+	if configured {
+		refreshErr = refreshOnce(m.workContext(), mgr, m.bridge, registerRefreshTimeout, cfg)
+	}
 	debugTrace("lifecycle refresh_complete model_count=%d refresh_error=%t", len(mgr.Models()), refreshErr != nil)
 
 	// Retire any running loop and wait for its exit outside m.mu: a mid-refresh
@@ -373,7 +382,7 @@ func (m *Manager) handleLifecycle(request []byte) ([]byte, error) {
 	// (stale-while-unavailable:false) no seed happens — same as the ticker
 	// failure path — so a reconfigure during an outage serves nothing until
 	// a refresh succeeds, honoring the operator's policy on BOTH paths.
-	if refreshErr != nil && cfg.Catalog.StaleWhileUnavailable && m.mgr != nil {
+	if configured && refreshErr != nil && cfg.Catalog.StaleWhileUnavailable && m.mgr != nil {
 		mgr.SeedFrom(m.mgr)
 	}
 	m.mgr = mgr
@@ -383,24 +392,40 @@ func (m *Manager) handleLifecycle(request []byte) ([]byte, error) {
 	m.mu.Unlock()
 
 	m.startRefreshLoop(cfg, mgr, interval, stop, done)
+	// Install the new membership first: even a cleanup failure must not let a
+	// removed key execute. Files left by a failed cleanup are retried on reload.
+	cleanupCtx, cancelCleanup := context.WithTimeout(m.workContext(), registerRefreshTimeout)
+	defer cancelCleanup()
+	if err := m.cleanupAuthRecords(cleanupCtx, cfg); err != nil && m.bridge != nil {
+		_ = m.bridge.Log("warn", "OpenCode credential cleanup incomplete; reload to retry and check the auth directory for *.opencode-cleanup-* files", map[string]any{"reason": err.Error()})
+	}
 	return registrationEnvelope(), nil
 }
 
 // materializeAuthRecords makes CPA-visible auth files idempotently. Existing
 // records are discovered through CPA so their host-managed metadata is never
 // overwritten. The full key digest is non-secret and independent of config
-// ordering. The host ABI has no delete/disable callback, so removed keys remain
-// stale records and are not claimed as removed.
+// ordering. Records of removed keys are deleted separately by
+// cleanupAuthRecords once the new configuration is installed.
 func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config) error {
 	if m.bridge == nil {
 		return nil
+	}
+	if err := m.bridge.waitAuthWrite(ctx); err != nil {
+		return err
 	}
 	entries, err := m.bridge.AuthList(ctx)
 	if err != nil {
 		return fmt.Errorf("list existing auth records: %w", err)
 	}
+	m.rememberAuthDirs(entries)
 	existing := make(map[string]struct{}, len(entries)*2)
+	listed := make(map[string]bool, len(entries))
 	for _, entry := range entries {
+		// A listing without provider metadata still needs the disk check below.
+		if filepath.IsAbs(entry.Path) && (entry.Provider != "" || entry.Type != "") {
+			listed[filepath.Clean(entry.Path)] = true
+		}
 		// Before the auth manager is ready, v8 lists disk files without IDs.
 		// Recover identity from those host-reported paths to avoid duplicates
 		// when a credential has a readable filename.
@@ -427,6 +452,11 @@ func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config)
 		if id := strings.TrimSpace(entry.ID); id != "" {
 			existing[id] = struct{}{}
 		}
+	}
+	// The listing can omit files, or be temporarily empty while CPA reloads.
+	// AuthSave overwrites, so reserve every name and key already on disk.
+	if err := m.reserveUnlistedAuth(ctx, listed, existing); err != nil {
+		return err
 	}
 	for i, key := range cfg.APIKeys {
 		digest := sha256.Sum256([]byte(key.Value))
@@ -470,9 +500,10 @@ func (m *Manager) materializeAuthRecords(ctx context.Context, cfg config.Config)
 func (m *Manager) handleModels() ([]byte, error) {
 	m.mu.RLock()
 	mgr := m.mgr
+	configured := len(m.cfg.APIKeys) > 0
 	m.mu.RUnlock()
 	models := make([]pluginapi.ModelInfo, 0)
-	if mgr != nil {
+	if mgr != nil && configured {
 		for _, rec := range mgr.Models() {
 			models = append(models, pluginapi.ModelInfo{
 				ID:                        rec.PublicID,
@@ -544,6 +575,10 @@ func (m *Manager) handleQuiesce(shutdown bool) ([]byte, error) {
 // catalog manager. The loop captures its own cfg/mgr/bridge snapshot so
 // it never contends on m.mu; reconfigure swaps state and restarts the loop.
 func (m *Manager) startRefreshLoop(cfg config.Config, mgr *catalog.Manager, interval time.Duration, stop, done chan struct{}) {
+	if len(cfg.APIKeys) == 0 {
+		close(done) // idle: no upstream requests
+		return
+	}
 	// F4: tick refresh contexts derive from stopCtx so close(stop) aborts
 	// an in-flight Refresh immediately instead of leaving lifeMu held until
 	// the old config's request-timeout expires. The watcher goroutine is

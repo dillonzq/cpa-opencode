@@ -101,7 +101,7 @@ api-keys:
     # workspace-id: org_example
 ```
 
-Each entry accepts `name`, `value` and optional `workspace-id`. Modern API keys already select a workspace. An explicit workspace ID becomes `x-org-id` on Console requests and `x-opencode-org-id` on inference requests.
+Each entry accepts `name`, `value` and optional `workspace-id`. Modern API keys already select a workspace. An explicit workspace ID becomes `x-org-id` on Console requests and `x-opencode-org-id` on inference requests. Each supplied key must be non-empty, and duplicate keys are rejected. The list may be empty or omitted: the plugin then registers idle, without upstream requests or published models, and resumes when keys are added; no restart is needed.
 
 ### Configuration options
 
@@ -198,7 +198,9 @@ models:
 
 ## Account names and quotas
 
-On registration, each configured key receives a separate CPA credential file. `name` controls its display label; stable key-derived IDs survive renaming and reordering. Existing credential files and host metadata are preserved. Removing a configured key stops its execution and per-auth model publication; its physical file can be removed through CPA credential management.
+On registration, each configured key receives a separate CPA credential file. `name` controls its display label; stable key-derived IDs survive renaming and reordering. Existing credential files and host metadata are preserved, including proxy and disabled settings. Before creating a credential, the plugin also checks the auth directories CPA has reported, including subdirectories, for JSON files missing from CPA's current list, so a partial or temporarily empty list cannot make it duplicate a key or overwrite a file. Registration fails before writing if such a file cannot be read.
+
+Removing a configured key stops its execution, quota lookup, refresh and per-auth model publication. After a successful registration or reconfiguration, the plugin also deletes that key's credential files; clearing or omitting `api-keys` removes every credential it can verify as its own. Cleanup recursively scans the auth directories CPA has reported, including files missing from CPA's list, and reuses the last reported directories when the list is temporarily empty. On a cold start where CPA reports no file, the current SDK exposes no auth directory to scan. A file is deleted only when its physical record has type `opencode` and the ID derived from its own key; manual, malformed, foreign and symlinked files are left untouched. A loaded credential is first written as disabled, and deletion waits until CPA reports that file-backed entry as disabled. If confirmation or file access fails, the plugin logs a warning; reload to retry. If the original filename cannot be restored safely, the credential is kept in a `*.opencode-cleanup-*` file for manual recovery. A removed key added again starts with default state. Shutdown, upgrades and restarts never delete configured credentials.
 
 CPA owns selection, rotation and cooldown across protocols. Each execution and quota query uses the selected credential. API keys have no token-renewal flow; `auth.refresh` validates the key and preserves storage, proxy and disabled state.
 

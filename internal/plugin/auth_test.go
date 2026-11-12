@@ -8,11 +8,13 @@ import (
 
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
+
+	"github.com/dillonzq/cpa-opencode/internal/config"
 )
 
 func TestAuthProviderParseAndRefresh(t *testing.T) {
 	secret := "sk-auth-secret-1"
-	p := authProvider{}
+	p := authProvider{cfg: config.Config{APIKeys: []config.APIKey{{Value: secret}}}}
 	rawBytes := []byte(`{"type":"opencode","id":"stable","label":"Primary","api_key":"` + secret + `"}`)
 	parsed, err := p.ParseAuth(context.Background(), pluginapi.AuthParseRequest{
 		Provider: ProviderID, FileName: "key.json",
@@ -77,6 +79,7 @@ func TestAuthProviderMalformedRecognizedInput(t *testing.T) {
 
 func TestAuthDispatchMethods(t *testing.T) {
 	m := NewManager(nil)
+	m.cfg.APIKeys = []config.APIKey{{Value: "sk-refresh-1"}}
 	var got pluginapi.AuthParseResponse
 	raw, err := m.HandleCall(pluginabi.MethodAuthIdentifier, nil)
 	if err != nil || !bytesContain(raw, []byte(ProviderID)) {
