@@ -1,3 +1,22 @@
+# v0.4.3
+
+## Behavior changes
+
+- An empty or omitted `api-keys` list now registers the plugin idle, without upstream requests or published models. Add keys through reconfiguration to resume without restarting CPA. Supplied keys must still be non-empty and unique.
+- After successful registration or reconfiguration, credentials for removed keys are automatically deleted when their physical records can be verified as plugin-owned. Clearing or omitting `api-keys` also removes all such credentials. Removed keys immediately stop execution, quota lookup, refresh and model publication, even if file cleanup fails.
+- Cleanup checks the physical record's `opencode` type and key-derived ID, leaves manual, malformed, foreign and symlinked files untouched, and waits for CPA to confirm loaded file-backed credentials are disabled before deleting them. Configured credentials and their host-managed metadata remain preserved across shutdown, upgrades and restarts. Re-adding a deleted key creates it with default state.
+
+## Fixes
+
+- Scan previously reported auth directories recursively before creating credentials, reserving files and keys missing from CPA's current listing. A partial or temporarily empty list no longer causes duplicate credentials or overwrites existing files. Unreadable unlisted files fail registration before any write.
+- Wait for pending host credential writes before inspecting or cleaning up files, including writes whose callers have already timed out.
+
+## Compatibility and verification
+
+- Requires CLIProxyAPI `v8.0.0+` with native plugins enabled. Before upgrading, ensure `api-keys` contains every credential you want to keep; removed keys' verified plugin-owned files are now deleted automatically.
+- Cleanup reuses previously reported auth directories when CPA's list is temporarily empty. On a cold start with no reported files, the current SDK exposes no auth directory to scan. Failed cleanup logs a warning and can be retried by reloading; a `*.opencode-cleanup-*` file may require manual recovery when the original filename cannot be restored safely.
+- Release packages include seven platform ZIPs and one combined `checksums.txt`. Production tests, native host integration tests, race checks and vet pass against local mock upstreams. A local Linux amd64 shared-library build and ZIP packaging check also pass; the seven-platform builds run in CI. Live paid inference and account billing access require separate verification.
+
 # v0.4.2
 
 ## Behavior changes
